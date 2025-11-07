@@ -2,12 +2,9 @@ package syncing
 
 import "akeneo-migrator/kit/bus"
 
-const (
-	SyncProductCommandType          bus.Type = "product.sync"
-	SyncProductHierarchyCommandType bus.Type = "product.sync_hierarchy"
-)
+const SyncProductCommandType bus.Type = "product.sync"
 
-// SyncProductCommand represents a command to sync a single product
+// SyncProductCommand represents a command to sync a product hierarchy
 type SyncProductCommand struct {
 	Identifier string
 	Debug      bool
@@ -16,15 +13,4 @@ type SyncProductCommand struct {
 // Type returns the command type
 func (c SyncProductCommand) Type() bus.Type {
 	return SyncProductCommandType
-}
-
-// SyncProductHierarchyCommand represents a command to sync a product hierarchy
-type SyncProductHierarchyCommand struct {
-	Identifier string
-	Debug      bool
-}
-
-// Type returns the command type
-func (c SyncProductHierarchyCommand) Type() bus.Type {
-	return SyncProductHierarchyCommandType
 }

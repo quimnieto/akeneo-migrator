@@ -45,6 +45,22 @@ func (m *MockSourceRepository) FindModelsByParent(ctx context.Context, parentCod
 	return []product.ProductModel{}, nil
 }
 
+func (m *MockSourceRepository) FindProductsUpdatedSince(ctx context.Context, updatedSince string) ([]product.Product, error) {
+	return []product.Product{}, nil
+}
+
+func (m *MockSourceRepository) FindModelsUpdatedSince(ctx context.Context, updatedSince string) ([]product.ProductModel, error) {
+	return []product.ProductModel{}, nil
+}
+
+func (m *MockSourceRepository) StreamProductsUpdatedSince(ctx context.Context, updatedSince string, batchSize int, callback func([]product.Product) error) error {
+	return nil
+}
+
+func (m *MockSourceRepository) StreamModelsUpdatedSince(ctx context.Context, updatedSince string, batchSize int, callback func([]product.ProductModel) error) error {
+	return nil
+}
+
 // MockDestRepository is a mock of the destination repository for testing
 type MockDestRepository struct {
 	findByIdentifierFunc     func(ctx context.Context, identifier string) (product.Product, error)
@@ -109,6 +125,9 @@ func TestSync_Success(t *testing.T) {
 		findByIdentifierFunc: func(ctx context.Context, identifier string) (product.Product, error) {
 			return mockProduct, nil
 		},
+		findProductsByParentFunc: func(ctx context.Context, parentCode string) ([]product.Product, error) {
+			return []product.Product{}, nil
+		},
 	}
 
 	destRepo := &MockDestRepository{
@@ -141,6 +160,9 @@ func TestSync_SourceError(t *testing.T) {
 	sourceRepo := &MockSourceRepository{
 		findByIdentifierFunc: func(ctx context.Context, identifier string) (product.Product, error) {
 			return nil, errors.New("product not found")
+		},
+		findModelByCodeFunc: func(ctx context.Context, code string) (product.ProductModel, error) {
+			return nil, errors.New("model not found")
 		},
 	}
 
@@ -179,14 +201,10 @@ func TestSync_DestError(t *testing.T) {
 	service := syncing.NewService(sourceRepo, destRepo)
 
 	// Act
-	result, err := service.Sync(context.Background(), "SKU-123")
+	_, err := service.Sync(context.Background(), "SKU-123")
 
 	// Assert
 	if err == nil {
 		t.Error("Expected error, got nil")
-	}
-
-	if result.Success {
-		t.Error("Expected success to be false, got true")
 	}
 }

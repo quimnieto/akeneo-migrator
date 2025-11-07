@@ -2,6 +2,7 @@ package akeneo
 
 import (
 	"context"
+	"fmt"
 
 	"akeneo-migrator/internal/platform/client/akeneo"
 	"akeneo-migrator/internal/product"
@@ -143,4 +144,56 @@ func (r *DestProductRepository) FindModelsByParent(ctx context.Context, parentCo
 	}
 
 	return result, nil
+}
+
+// FindProductsUpdatedSince retrieves all products updated since a specific date
+func (r *SourceProductRepository) FindProductsUpdatedSince(ctx context.Context, updatedSince string) ([]product.Product, error) {
+	products, err := r.client.GetProductsUpdatedSince(updatedSince)
+	if err != nil {
+		return nil, fmt.Errorf("error fetching updated products: %w", err)
+	}
+
+	result := make([]product.Product, len(products))
+	for i, p := range products {
+		result[i] = product.Product(p)
+	}
+
+	return result, nil
+}
+
+// FindModelsUpdatedSince retrieves all product models updated since a specific date
+func (r *SourceProductRepository) FindModelsUpdatedSince(ctx context.Context, updatedSince string) ([]product.ProductModel, error) {
+	models, err := r.client.GetProductModelsUpdatedSince(updatedSince)
+	if err != nil {
+		return nil, fmt.Errorf("error fetching updated product models: %w", err)
+	}
+
+	result := make([]product.ProductModel, len(models))
+	for i, m := range models {
+		result[i] = product.ProductModel(m)
+	}
+
+	return result, nil
+}
+
+// StreamProductsUpdatedSince processes products updated since a specific date in batches
+func (r *SourceProductRepository) StreamProductsUpdatedSince(ctx context.Context, updatedSince string, batchSize int, callback func([]product.Product) error) error {
+	return r.client.StreamProductsUpdatedSince(updatedSince, batchSize, func(products []akeneo.Product) error {
+		batch := make([]product.Product, len(products))
+		for i, p := range products {
+			batch[i] = product.Product(p)
+		}
+		return callback(batch)
+	})
+}
+
+// StreamModelsUpdatedSince processes product models updated since a specific date in batches
+func (r *SourceProductRepository) StreamModelsUpdatedSince(ctx context.Context, updatedSince string, batchSize int, callback func([]product.ProductModel) error) error {
+	return r.client.StreamProductModelsUpdatedSince(updatedSince, batchSize, func(models []akeneo.ProductModel) error {
+		batch := make([]product.ProductModel, len(models))
+		for i, m := range models {
+			batch[i] = product.ProductModel(m)
+		}
+		return callback(batch)
+	})
 }

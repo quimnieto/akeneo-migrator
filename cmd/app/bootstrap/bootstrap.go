@@ -12,6 +12,7 @@ import (
 	"akeneo-migrator/internal/platform/config"
 	akeneo_storage "akeneo-migrator/internal/platform/storage/akeneo"
 	product_syncing "akeneo-migrator/internal/product/syncing"
+	product_syncing_since "akeneo-migrator/internal/product/syncing_since"
 	"akeneo-migrator/internal/reference_entity/syncing"
 	"akeneo-migrator/kit/bus"
 	"akeneo-migrator/kit/bus/in_memory"
@@ -82,6 +83,7 @@ func Run() error {
 	// 6. Create services
 	referenceEntitySyncer := syncing.NewService(sourceRepository, destRepository)
 	productSyncer := product_syncing.NewService(sourceProductRepo, destProductRepo)
+	productSinceSyncer := product_syncing_since.NewService(sourceProductRepo, destProductRepo)
 	attributeSyncer := attribute_syncing.NewService(sourceAttributeRepo, destAttributeRepo)
 	sourceCategoryRepo := akeneo_storage.NewSourceCategoryRepository(sourceClient)
 	destCategoryRepo := akeneo_storage.NewDestCategoryRepository(destClient)
@@ -102,8 +104,8 @@ func Run() error {
 		product_syncing.NewCommandHandler(productSyncer),
 	)
 	commandBus.Register(
-		product_syncing.SyncProductHierarchyCommandType,
-		product_syncing.NewCommandHandler(productSyncer),
+		product_syncing_since.SyncProductsSinceCommandType,
+		product_syncing_since.NewCommandHandler(productSinceSyncer),
 	)
 	commandBus.Register(
 		attribute_syncing.SyncAttributeCommandType,
@@ -141,6 +143,9 @@ products, categories and other elements.`,
 
 	syncCategoryCmd := createSyncCategoryCommand(app)
 	rootCmd.AddCommand(syncCategoryCmd)
+
+	syncUpdatedProductsCmd := createSyncUpdatedProductsCommand(app)
+	rootCmd.AddCommand(syncUpdatedProductsCmd)
 
 	// 12. Execute root command
 	return rootCmd.Execute()
@@ -252,15 +257,13 @@ Requires the common product/model identifier as an argument.
 
 Example:
   akeneo-migrator sync-product COMMON-001
-  akeneo-migrator sync-product COMMON-001 --debug
-  akeneo-migrator sync-product COMMON-001 --single  # Sync only the product, not hierarchy`,
+  akeneo-migrator sync-product COMMON-001 --debug`,
 		Args: cobra.ExactArgs(1),
 		Run:  runSyncProductCommand(app),
 	}
 
 	// Add flags
 	cmd.Flags().Bool("debug", false, "Enable debug mode to see product contents")
-	cmd.Flags().Bool("single", false, "Sync only the single product, not the entire hierarchy")
 
 	return cmd
 }
@@ -272,32 +275,19 @@ func runSyncProductCommand(app *Application) func(cmd *cobra.Command, args []str
 		ctx := context.Background()
 
 		// Get flags
-		debug, _ := cmd.Flags().GetBool("debug")   //nolint:errcheck // flag is optional
-		single, _ := cmd.Flags().GetBool("single") //nolint:errcheck // flag is optional
+		debug, _ := cmd.Flags().GetBool("debug") //nolint:errcheck // flag is optional
 
 		fmt.Printf("🚀 Starting synchronization for product: %s\n", identifier)
 		if debug {
 			fmt.Println("🔍 Debug mode enabled")
 		}
 
-		var response bus.Response
-		var err error
-
-		if single {
-			// Sync only the single product
-			fmt.Printf("📥 Fetching product '%s' from source...\n", identifier)
-			response, err = app.CommandBus.Dispatch(ctx, product_syncing.SyncProductCommand{
-				Identifier: identifier,
-				Debug:      debug,
-			})
-		} else {
-			// Sync entire hierarchy
-			fmt.Printf("📥 Fetching product hierarchy for '%s' from source...\n", identifier)
-			response, err = app.CommandBus.Dispatch(ctx, product_syncing.SyncProductHierarchyCommand{
-				Identifier: identifier,
-				Debug:      debug,
-			})
-		}
+		// Sync entire hierarchy
+		fmt.Printf("📥 Fetching product hierarchy for '%s' from source...\n", identifier)
+		response, err := app.CommandBus.Dispatch(ctx, product_syncing.SyncProductCommand{
+			Identifier: identifier,
+			Debug:      debug,
+		})
 
 		if err != nil {
 			log.Printf("❌ Synchronization error: %v\n", err)
@@ -441,6 +431,87 @@ func runSyncCategoryCommand(app *Application) func(cmd *cobra.Command, args []st
 			fmt.Printf("\n✅ Category '%s' synchronized successfully!\n", result.Code)
 		} else {
 			fmt.Printf("❌ Failed to synchronize '%s': %s\n", result.Code, result.Error)
+		}
+	}
+}
+
+// createSyncUpdatedProductsCommand creates the sync-updated-products command
+func createSyncUpdatedProductsCommand(app *Application) *cobra.Command {
+	cmd := &cobra.Command{
+		Use:   "sync-updated-products [date]",
+		Short: "Synchronizes products updated since a specific date",
+		Long: `Synchronizes all products and their complete hierarchies that have been updated since a specific date.
+
+The date should be in ISO 8601 format: YYYY-MM-DDTHH:MM:SS
+
+For each updated product or model, the entire hierarchy will be synchronized:
+- If a model is updated, syncs the model and all its variants
+- If a product is updated, syncs its parent hierarchy (common → models → variants)
+
+Example:
+  akeneo-migrator sync-updated-products 2024-01-01T00:00:00
+  akeneo-migrator sync-updated-products 2024-01-15T10:30:00 --debug`,
+		Args: cobra.ExactArgs(1),
+		Run:  runSyncUpdatedProductsCommand(app),
+	}
+
+	// Add debug flag
+	cmd.Flags().Bool("debug", false, "Enable debug mode to see detailed sync information")
+
+	return cmd
+}
+
+// runSyncUpdatedProductsCommand executes the updated products synchronization logic
+func runSyncUpdatedProductsCommand(app *Application) func(cmd *cobra.Command, args []string) {
+	return func(cmd *cobra.Command, args []string) {
+		updatedSince := args[0]
+		ctx := context.Background()
+
+		// Get debug flag
+		debug, _ := cmd.Flags().GetBool("debug") //nolint:errcheck // flag is optional
+
+		fmt.Printf("🚀 Starting synchronization of products updated since: %s\n", updatedSince)
+		if debug {
+			fmt.Println("🔍 Debug mode enabled")
+		}
+
+		// Execute synchronization using command bus
+		response, err := app.CommandBus.Dispatch(ctx, product_syncing_since.SyncProductsSinceCommand{
+			UpdatedSince: updatedSince,
+			Debug:        debug,
+		})
+		if err != nil {
+			log.Printf("❌ Synchronization error: %v\n", err)
+			return
+		}
+
+		result, ok := response.Data.(*product_syncing_since.SyncResult)
+		if !ok {
+			log.Printf("❌ Invalid response type\n")
+			return
+		}
+
+		// Show result
+		fmt.Println("\n📋 Synchronization Summary:")
+		fmt.Printf("   📅 Updated since: %s\n", result.UpdatedSince)
+		fmt.Printf("   📦 Models synced: %d\n", result.ModelsSynced)
+		fmt.Printf("   📦 Products synced: %d\n", result.ProductsSynced)
+		fmt.Printf("   📊 Total synced: %d\n", result.TotalSynced)
+
+		if len(result.Errors) > 0 {
+			fmt.Printf("   ⚠️  Errors: %d\n", len(result.Errors))
+			if debug {
+				fmt.Println("\n❌ Errors encountered:")
+				for _, errMsg := range result.Errors {
+					fmt.Printf("   - %s\n", errMsg)
+				}
+			}
+		}
+
+		if result.Success {
+			fmt.Println("\n✅ Synchronization completed successfully!")
+		} else {
+			fmt.Println("\n⚠️  Synchronization completed with errors")
 		}
 	}
 }

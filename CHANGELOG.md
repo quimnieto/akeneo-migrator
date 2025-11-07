@@ -4,6 +4,16 @@ All notable changes to this project will be documented in this file.
 
 ## [Unreleased]
 
+### Changed
+- **Refactored product module structure**
+  - Split into `syncing` and `syncing_since` submodules
+  - Removed single product sync (always syncs complete hierarchies)
+  - Simplified API: `Sync()` always syncs complete hierarchies
+  - Removed `--single` flag from CLI
+  - Better naming: `syncing` for hierarchy sync, `syncing_since` for date-based sync
+  - Cleaner separation of concerns
+  - Each module has single responsibility
+
 ### Added
 - **Command Bus Architecture**
   - In-memory command bus implementation
@@ -11,6 +21,16 @@ All notable changes to this project will be documented in this file.
   - Middleware support (Logging)
   - Centralized command dispatching
   - Documentation in COMMAND_BUS.md
+  
+- **Sync Updated Products feature**
+  - New `sync-updated-products` command to sync products by update date
+  - Optimized root-only sync (only syncs common/root items)
+  - Automatic hierarchy deduplication
+  - Support for incremental synchronization
+  - Date-based filtering with ISO 8601 format
+  - Automatic date format conversion (ISO 8601 → Akeneo format)
+  - Handles both products and product models
+  - Documentation in SYNC_UPDATED_PRODUCTS.md
   
 - **Category synchronization feature**
   - New `sync-category` command to sync individual categories

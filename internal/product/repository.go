@@ -21,6 +21,20 @@ type SourceRepository interface {
 
 	// FindModelsByParent retrieves all product models with a specific parent
 	FindModelsByParent(ctx context.Context, parentCode string) ([]ProductModel, error)
+
+	// FindProductsUpdatedSince retrieves all products updated since a specific date
+	FindProductsUpdatedSince(ctx context.Context, updatedSince string) ([]Product, error)
+
+	// FindModelsUpdatedSince retrieves all product models updated since a specific date
+	FindModelsUpdatedSince(ctx context.Context, updatedSince string) ([]ProductModel, error)
+
+	// StreamProductsUpdatedSince processes products updated since a specific date in batches
+	// The callback is called for each batch of products
+	StreamProductsUpdatedSince(ctx context.Context, updatedSince string, batchSize int, callback func([]Product) error) error
+
+	// StreamModelsUpdatedSince processes product models updated since a specific date in batches
+	// The callback is called for each batch of models
+	StreamModelsUpdatedSince(ctx context.Context, updatedSince string, batchSize int, callback func([]ProductModel) error) error
 }
 
 // DestRepository defines read and write operations for the destination

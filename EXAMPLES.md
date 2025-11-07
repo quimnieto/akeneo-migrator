@@ -527,3 +527,117 @@ category 'nonexistent' not found
 # 4. Sync products (final data)
 ./bin/akeneo-migrator sync-product COMMON-001
 ```
+
+## Sync Updated Products
+
+### Sync Products Updated Since Specific Date
+
+```bash
+# Sync everything updated since January 1st, 2024
+./bin/akeneo-migrator sync-updated-products 2024-01-01T00:00:00
+```
+
+**Output:**
+```
+🚀 Starting synchronization of products updated since: 2024-01-01T00:00:00
+📅 Fetching products updated since: 2024-01-01T00:00:00
+   📦 Found 5 updated models
+   📦 Found 12 updated products
+   🔄 Syncing model hierarchy: MODEL-001
+   🔄 Syncing parent hierarchy for product: SKU-123 (parent: MODEL-001)
+
+📋 Synchronization Summary:
+   📅 Updated since: 2024-01-01T00:00:00
+   📦 Models synced: 8
+   📦 Products synced: 24
+   📊 Total synced: 32
+
+✅ Synchronization completed successfully!
+```
+
+### Sync Last 24 Hours
+
+```bash
+# Get yesterday's date and sync
+YESTERDAY=$(date -u -d '1 day ago' '+%Y-%m-%dT%H:%M:%S')
+./bin/akeneo-migrator sync-updated-products $YESTERDAY
+```
+
+### Sync Last Week
+
+```bash
+# Get date from 7 days ago
+LAST_WEEK=$(date -u -d '7 days ago' '+%Y-%m-%dT%H:%M:%S')
+./bin/akeneo-migrator sync-updated-products $LAST_WEEK
+```
+
+### Incremental Sync with Timestamp Tracking
+
+```bash
+#!/bin/bash
+# incremental-sync.sh
+
+# Read last sync timestamp
+if [ -f .last_sync ]; then
+  LAST_SYNC=$(cat .last_sync)
+else
+  # Default to 1 day ago if no previous sync
+  LAST_SYNC=$(date -u -d '1 day ago' '+%Y-%m-%dT%H:%M:%S')
+fi
+
+echo "Syncing products updated since: $LAST_SYNC"
+./bin/akeneo-migrator sync-updated-products $LAST_SYNC
+
+# Save current timestamp for next sync
+date -u '+%Y-%m-%dT%H:%M:%S' > .last_sync
+echo "Next sync will start from: $(cat .last_sync)"
+```
+
+### Scheduled Hourly Sync
+
+```bash
+#!/bin/bash
+# sync-hourly.sh
+
+ONE_HOUR_AGO=$(date -u -d '1 hour ago' '+%Y-%m-%dT%H:%M:%S')
+./bin/akeneo-migrator sync-updated-products $ONE_HOUR_AGO
+```
+
+Add to crontab:
+```bash
+# Run every hour
+0 * * * * cd /path/to/akeneo-migrator && ./sync-hourly.sh >> /var/log/akeneo-sync.log 2>&1
+```
+
+### Real-time Sync (Every 5 Minutes)
+
+```bash
+#!/bin/bash
+# sync-realtime.sh
+
+FIVE_MINUTES_AGO=$(date -u -d '5 minutes ago' '+%Y-%m-%dT%H:%M:%S')
+./bin/akeneo-migrator sync-updated-products $FIVE_MINUTES_AGO
+```
+
+Add to crontab:
+```bash
+# Run every 5 minutes
+*/5 * * * * cd /path/to/akeneo-migrator && ./sync-realtime.sh >> /var/log/akeneo-sync.log 2>&1
+```
+
+### Complete Sync Strategy
+
+```bash
+#!/bin/bash
+# complete-sync-strategy.sh
+
+echo "=== Initial Full Sync (Run Once) ==="
+./bin/akeneo-migrator sync brands
+./bin/akeneo-migrator sync-attribute sku
+./bin/akeneo-migrator sync-category master
+
+echo ""
+echo "=== Incremental Sync (Run Regularly) ==="
+ONE_HOUR_AGO=$(date -u -d '1 hour ago' '+%Y-%m-%dT%H:%M:%S')
+./bin/akeneo-migrator sync-updated-products $ONE_HOUR_AGO
+```
