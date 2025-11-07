@@ -90,7 +90,7 @@ func (c *Client) authenticate() error {
 	if err != nil {
 		return err
 	}
-	defer resp.Body.Close()
+	defer func() { _ = resp.Body.Close() }()
 
 	if resp.StatusCode != http.StatusOK {
 		body, _ := io.ReadAll(resp.Body)
@@ -142,7 +142,7 @@ func (c *Client) GetReferenceEntityRecords(entityName string) ([]ReferenceEntity
 		if err != nil {
 			return nil, err
 		}
-		defer resp.Body.Close()
+		defer func() { _ = resp.Body.Close() }()
 
 		if resp.StatusCode != http.StatusOK {
 			body, _ := io.ReadAll(resp.Body)
@@ -206,7 +206,7 @@ func (c *Client) PatchReferenceEntityRecord(entityName, code string, record Refe
 	if err != nil {
 		return err
 	}
-	defer resp.Body.Close()
+	defer func() { _ = resp.Body.Close() }()
 
 	if resp.StatusCode != http.StatusOK && resp.StatusCode != http.StatusCreated && resp.StatusCode != http.StatusNoContent {
 		body, _ := io.ReadAll(resp.Body)
@@ -267,8 +267,9 @@ func (c *Client) formatAkeneoErrors(errorResponse AkeneoErrorResponse) string {
 // DebugRecord prints the content of a record for debugging purposes
 func (c *Client) DebugRecord(entityName, code string, record ReferenceEntityRecord) {
 	cleanRecord := c.cleanRecord(record)
-	jsonData, _ := json.MarshalIndent(cleanRecord, "", "  ")
-	fmt.Printf("🔍 DEBUG - Record %s/%s:\n%s\n", entityName, code, string(jsonData))
+	if jsonData, err := json.MarshalIndent(cleanRecord, "", "  "); err == nil {
+		fmt.Printf("🔍 DEBUG - Record %s/%s:\n%s\n", entityName, code, string(jsonData))
+	}
 }
 
 // Get ReferenceEntity retrieves a Reference Entity definition
@@ -291,7 +292,7 @@ func (c *Client) GetReferenceEntity(entityCode string) (ReferenceEntity, error) 
 	if err != nil {
 		return nil, err
 	}
-	defer resp.Body.Close()
+	defer func() { _ = resp.Body.Close() }()
 
 	if resp.StatusCode == http.StatusNotFound {
 		return nil, fmt.Errorf("reference entity '%s' not found", entityCode)
@@ -338,7 +339,7 @@ func (c *Client) PatchReferenceEntity(entityCode string, entity ReferenceEntity)
 	if err != nil {
 		return err
 	}
-	defer resp.Body.Close()
+	defer func() { _ = resp.Body.Close() }()
 
 	if resp.StatusCode != http.StatusOK && resp.StatusCode != http.StatusCreated && resp.StatusCode != http.StatusNoContent {
 		body, _ := io.ReadAll(resp.Body)
@@ -402,7 +403,7 @@ func (c *Client) GetReferenceEntityAttributes(entityCode string) ([]ReferenceEnt
 	if err != nil {
 		return nil, err
 	}
-	defer resp.Body.Close()
+	defer func() { _ = resp.Body.Close() }()
 
 	if resp.StatusCode != http.StatusOK {
 		body, _ := io.ReadAll(resp.Body)
@@ -455,8 +456,9 @@ func (c *Client) PatchReferenceEntityAttribute(entityCode, attributeCode string,
 	}
 
 	// Debug: print original attribute
-	originalJSON, _ := json.MarshalIndent(attribute, "", "  ")
-	fmt.Printf("🔍 DEBUG - Original attribute %s:\n%s\n", attributeCode, string(originalJSON))
+	if originalJSON, err := json.MarshalIndent(attribute, "", "  "); err == nil {
+		fmt.Printf("🔍 DEBUG - Original attribute %s:\n%s\n", attributeCode, string(originalJSON))
+	}
 
 	// Clean fields that should not be sent
 	cleanAttribute := c.cleanReferenceEntityAttribute(attribute)
@@ -465,26 +467,28 @@ func (c *Client) PatchReferenceEntityAttribute(entityCode, attributeCode string,
 	var buf bytes.Buffer
 	encoder := json.NewEncoder(&buf)
 	encoder.SetEscapeHTML(false)
-	
+
 	if err := encoder.Encode(cleanAttribute); err != nil {
 		return err
 	}
-	
+
 	jsonData := buf.Bytes()
 
 	// Debug: print what we're sending
 	fmt.Printf("🔍 DEBUG - Sending attribute %s:\n%s\n", attributeCode, string(jsonData))
-	
+
 	// Additional debug: verify by unmarshalling back
 	var debugCheck map[string]interface{}
-	json.Unmarshal(jsonData, &debugCheck)
-	fmt.Printf("🔍 DEBUG - Labels type in JSON: %T, value: %v\n", debugCheck["labels"], debugCheck["labels"])
-	
-	// Extra debug: check raw bytes of labels field
-	labelsJSON, _ := json.Marshal(debugCheck["labels"])
-	fmt.Printf("🔍 DEBUG - Labels as JSON bytes: %s\n", string(labelsJSON))
+	if err := json.Unmarshal(jsonData, &debugCheck); err == nil {
+		fmt.Printf("🔍 DEBUG - Labels type in JSON: %T, value: %v\n", debugCheck["labels"], debugCheck["labels"])
+	}
 
-	url := fmt.Sprintf("%s/api/rest/v1/reference-entities/%s/attributes/%s", 
+	// Extra debug: check raw bytes of labels field
+	if labelsJSON, err := json.Marshal(debugCheck["labels"]); err == nil {
+		fmt.Printf("🔍 DEBUG - Labels as JSON bytes: %s\n", string(labelsJSON))
+	}
+
+	url := fmt.Sprintf("%s/api/rest/v1/reference-entities/%s/attributes/%s",
 		c.config.Host, entityCode, attributeCode)
 
 	req, err := http.NewRequest("PATCH", url, bytes.NewReader(jsonData))
@@ -499,7 +503,7 @@ func (c *Client) PatchReferenceEntityAttribute(entityCode, attributeCode string,
 	if err != nil {
 		return err
 	}
-	defer resp.Body.Close()
+	defer func() { _ = resp.Body.Close() }()
 
 	if resp.StatusCode != http.StatusOK && resp.StatusCode != http.StatusCreated && resp.StatusCode != http.StatusNoContent {
 		body, _ := io.ReadAll(resp.Body)
@@ -539,21 +543,21 @@ func (c *Client) cleanReferenceEntityAttribute(attribute ReferenceEntityAttribut
 
 	// Required fields that should always be included
 	requiredFields := map[string]bool{
-		"code":                          true,
-		"type":                          true,
-		"labels":                        true,
-		"value_per_locale":              true,
-		"value_per_channel":             true,
+		"code":                         true,
+		"type":                         true,
+		"labels":                       true,
+		"value_per_locale":             true,
+		"value_per_channel":            true,
 		"is_required_for_completeness": true,
 	}
 
 	// Type-specific fields
 	textFields := map[string]bool{
-		"is_textarea":          true,
-		"is_rich_text_editor":  true,
-		"validation_rule":      true,
-		"max_characters":       true,
-		"validation_regexp":    true,
+		"is_textarea":         true,
+		"is_rich_text_editor": true,
+		"validation_rule":     true,
+		"max_characters":      true,
+		"validation_regexp":   true,
 	}
 
 	numberFields := map[string]bool{
@@ -712,4 +716,342 @@ func (c *Client) normalizeArray(value interface{}) interface{} {
 
 	// Return as is
 	return value
+}
+
+// Product represents a product
+type Product map[string]interface{}
+
+// GetProduct retrieves a product by its identifier
+func (c *Client) GetProduct(identifier string) (Product, error) {
+	if err := c.ensureValidToken(); err != nil {
+		return nil, err
+	}
+
+	url := fmt.Sprintf("%s/api/rest/v1/products/%s", c.config.Host, identifier)
+
+	req, err := http.NewRequest("GET", url, nil)
+	if err != nil {
+		return nil, err
+	}
+
+	req.Header.Set("Authorization", "Bearer "+c.accessToken)
+	req.Header.Set("Content-Type", "application/json")
+
+	resp, err := c.httpClient.Do(req)
+	if err != nil {
+		return nil, err
+	}
+	defer func() { _ = resp.Body.Close() }()
+
+	if resp.StatusCode == http.StatusNotFound {
+		return nil, fmt.Errorf("product '%s' not found", identifier)
+	}
+
+	if resp.StatusCode != http.StatusOK {
+		body, _ := io.ReadAll(resp.Body)
+		return nil, fmt.Errorf("error fetching product: %d - %s", resp.StatusCode, string(body))
+	}
+
+	var productData Product
+	if err := json.NewDecoder(resp.Body).Decode(&productData); err != nil {
+		return nil, err
+	}
+
+	return productData, nil
+}
+
+// PatchProduct creates or updates a product
+func (c *Client) PatchProduct(identifier string, productData Product) error {
+	if err := c.ensureValidToken(); err != nil {
+		return err
+	}
+
+	// Clean fields that should not be sent
+	cleanProduct := c.cleanProduct(productData)
+
+	jsonData, err := json.Marshal(cleanProduct)
+	if err != nil {
+		return err
+	}
+
+	url := fmt.Sprintf("%s/api/rest/v1/products/%s", c.config.Host, identifier)
+
+	req, err := http.NewRequest("PATCH", url, bytes.NewReader(jsonData))
+	if err != nil {
+		return err
+	}
+
+	req.Header.Set("Authorization", "Bearer "+c.accessToken)
+	req.Header.Set("Content-Type", "application/json")
+
+	resp, err := c.httpClient.Do(req)
+	if err != nil {
+		return err
+	}
+	defer func() { _ = resp.Body.Close() }()
+
+	if resp.StatusCode != http.StatusOK && resp.StatusCode != http.StatusCreated && resp.StatusCode != http.StatusNoContent {
+		body, _ := io.ReadAll(resp.Body)
+
+		// For 422 errors, try to parse Akeneo error response
+		if resp.StatusCode == http.StatusUnprocessableEntity {
+			var errorResponse AkeneoErrorResponse
+			if parseErr := json.Unmarshal(body, &errorResponse); parseErr == nil {
+				return fmt.Errorf("validation error in product %s: %s", identifier, c.formatAkeneoErrors(errorResponse))
+			}
+		}
+
+		return fmt.Errorf("error updating product %s: %d - %s", identifier, resp.StatusCode, string(body))
+	}
+
+	return nil
+}
+
+// cleanProduct removes fields that should not be sent in write operations
+func (c *Client) cleanProduct(productData Product) Product {
+	cleaned := make(Product)
+
+	// List of fields to exclude
+	excludedFields := map[string]bool{
+		"_links":  true,
+		"created": true,
+		"updated": true,
+	}
+
+	for key, value := range productData {
+		// Exclude metadata fields
+		if !excludedFields[key] && value != nil {
+			cleaned[key] = value
+		}
+	}
+
+	return cleaned
+}
+
+// ProductModel represents a product model
+type ProductModel map[string]interface{}
+
+// GetProductModel retrieves a product model by its code
+func (c *Client) GetProductModel(code string) (ProductModel, error) {
+	if err := c.ensureValidToken(); err != nil {
+		return nil, err
+	}
+
+	url := fmt.Sprintf("%s/api/rest/v1/product-models/%s", c.config.Host, code)
+
+	req, err := http.NewRequest("GET", url, nil)
+	if err != nil {
+		return nil, err
+	}
+
+	req.Header.Set("Authorization", "Bearer "+c.accessToken)
+	req.Header.Set("Content-Type", "application/json")
+
+	resp, err := c.httpClient.Do(req)
+	if err != nil {
+		return nil, err
+	}
+	defer func() { _ = resp.Body.Close() }()
+
+	if resp.StatusCode == http.StatusNotFound {
+		return nil, fmt.Errorf("product model '%s' not found", code)
+	}
+
+	if resp.StatusCode != http.StatusOK {
+		body, _ := io.ReadAll(resp.Body)
+		return nil, fmt.Errorf("error fetching product model: %d - %s", resp.StatusCode, string(body))
+	}
+
+	var model ProductModel
+	if err := json.NewDecoder(resp.Body).Decode(&model); err != nil {
+		return nil, err
+	}
+
+	return model, nil
+}
+
+// PatchProductModel creates or updates a product model
+func (c *Client) PatchProductModel(code string, model ProductModel) error {
+	if err := c.ensureValidToken(); err != nil {
+		return err
+	}
+
+	// Clean fields that should not be sent
+	cleanModel := c.cleanProductModel(model)
+
+	jsonData, err := json.Marshal(cleanModel)
+	if err != nil {
+		return err
+	}
+
+	url := fmt.Sprintf("%s/api/rest/v1/product-models/%s", c.config.Host, code)
+
+	req, err := http.NewRequest("PATCH", url, bytes.NewReader(jsonData))
+	if err != nil {
+		return err
+	}
+
+	req.Header.Set("Authorization", "Bearer "+c.accessToken)
+	req.Header.Set("Content-Type", "application/json")
+
+	resp, err := c.httpClient.Do(req)
+	if err != nil {
+		return err
+	}
+	defer func() { _ = resp.Body.Close() }()
+
+	if resp.StatusCode != http.StatusOK && resp.StatusCode != http.StatusCreated && resp.StatusCode != http.StatusNoContent {
+		body, _ := io.ReadAll(resp.Body)
+
+		if resp.StatusCode == http.StatusUnprocessableEntity {
+			var errorResponse AkeneoErrorResponse
+			if parseErr := json.Unmarshal(body, &errorResponse); parseErr == nil {
+				return fmt.Errorf("validation error in product model %s: %s", code, c.formatAkeneoErrors(errorResponse))
+			}
+		}
+
+		return fmt.Errorf("error updating product model %s: %d - %s", code, resp.StatusCode, string(body))
+	}
+
+	return nil
+}
+
+// GetProductsByParent retrieves all products with a specific parent
+func (c *Client) GetProductsByParent(parentCode string) ([]Product, error) {
+	if err := c.ensureValidToken(); err != nil {
+		return nil, err
+	}
+
+	var allProducts []Product
+	page := 1
+	limit := 100
+
+	for {
+		url := fmt.Sprintf("%s/api/rest/v1/products?search={\"parent\":[{\"operator\":\"=\",\"value\":\"%s\"}]}&page=%d&limit=%d",
+			c.config.Host, parentCode, page, limit)
+
+		req, err := http.NewRequest("GET", url, nil)
+		if err != nil {
+			return nil, err
+		}
+
+		req.Header.Set("Authorization", "Bearer "+c.accessToken)
+		req.Header.Set("Content-Type", "application/json")
+
+		resp, err := c.httpClient.Do(req)
+		if err != nil {
+			return nil, err
+		}
+		defer func() { _ = resp.Body.Close() }()
+
+		if resp.StatusCode != http.StatusOK {
+			body, _ := io.ReadAll(resp.Body)
+			return nil, fmt.Errorf("error fetching products by parent: %d - %s", resp.StatusCode, string(body))
+		}
+
+		var response struct {
+			Embedded struct {
+				Items []Product `json:"items"`
+			} `json:"_embedded"`
+			Links struct {
+				Next *struct {
+					Href string `json:"href"`
+				} `json:"next"`
+			} `json:"_links"`
+		}
+
+		if err := json.NewDecoder(resp.Body).Decode(&response); err != nil {
+			return nil, err
+		}
+
+		allProducts = append(allProducts, response.Embedded.Items...)
+
+		if response.Links.Next == nil {
+			break
+		}
+
+		page++
+	}
+
+	return allProducts, nil
+}
+
+// GetProductModelsByParent retrieves all product models with a specific parent
+func (c *Client) GetProductModelsByParent(parentCode string) ([]ProductModel, error) {
+	if err := c.ensureValidToken(); err != nil {
+		return nil, err
+	}
+
+	var allModels []ProductModel
+	page := 1
+	limit := 100
+
+	for {
+		url := fmt.Sprintf("%s/api/rest/v1/product-models?search={\"parent\":[{\"operator\":\"=\",\"value\":\"%s\"}]}&page=%d&limit=%d",
+			c.config.Host, parentCode, page, limit)
+
+		req, err := http.NewRequest("GET", url, nil)
+		if err != nil {
+			return nil, err
+		}
+
+		req.Header.Set("Authorization", "Bearer "+c.accessToken)
+		req.Header.Set("Content-Type", "application/json")
+
+		resp, err := c.httpClient.Do(req)
+		if err != nil {
+			return nil, err
+		}
+		defer func() { _ = resp.Body.Close() }()
+
+		if resp.StatusCode != http.StatusOK {
+			body, _ := io.ReadAll(resp.Body)
+			return nil, fmt.Errorf("error fetching product models by parent: %d - %s", resp.StatusCode, string(body))
+		}
+
+		var response struct {
+			Embedded struct {
+				Items []ProductModel `json:"items"`
+			} `json:"_embedded"`
+			Links struct {
+				Next *struct {
+					Href string `json:"href"`
+				} `json:"next"`
+			} `json:"_links"`
+		}
+
+		if err := json.NewDecoder(resp.Body).Decode(&response); err != nil {
+			return nil, err
+		}
+
+		allModels = append(allModels, response.Embedded.Items...)
+
+		if response.Links.Next == nil {
+			break
+		}
+
+		page++
+	}
+
+	return allModels, nil
+}
+
+// cleanProductModel removes fields that should not be sent in write operations
+func (c *Client) cleanProductModel(model ProductModel) ProductModel {
+	cleaned := make(ProductModel)
+
+	// List of fields to exclude
+	excludedFields := map[string]bool{
+		"_links":  true,
+		"created": true,
+		"updated": true,
+	}
+
+	for key, value := range model {
+		if !excludedFields[key] && value != nil {
+			cleaned[key] = value
+		}
+	}
+
+	return cleaned
 }

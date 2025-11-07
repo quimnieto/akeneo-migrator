@@ -25,14 +25,14 @@ func (vp *viperConfig) LoadConfiguration(context string) error {
 	}
 	viperContext := *viper.New()
 
-	cwd, _ := os.Getwd()
+	cwd, _ := os.Getwd() //nolint:errcheck // fallback to current directory
 	env := strings.ToLower(os.Getenv("ENVIRONMENT"))
 	servicePath := strings.ToLower(os.Getenv("CONFIG_PATH"))
 
 	// Set the file name of the configurations file
 	configPath := fmt.Sprintf("%s/configs/settings.%s.json", cwd, env)
 	if env == "pipeline" {
-		_, compilationPath, _, _ := runtime.Caller(0)
+		_, compilationPath, _, _ := runtime.Caller(0) //nolint:errcheck // compilation path is always available
 		projectPath := filepath.Join(filepath.Dir(compilationPath), "../../../..")
 		configPath = fmt.Sprintf("%s/configs/%s/settings.%s.json", projectPath, servicePath, env)
 	}
@@ -48,9 +48,8 @@ func (vp *viperConfig) LoadConfiguration(context string) error {
 	if err := viperContext.ReadInConfig(); err != nil {
 		if _, ok := err.(viper.ConfigFileNotFoundError); ok {
 			return fmt.Errorf("file has not been found in the current directory")
-		} else {
-			return fmt.Errorf("fatal error config file: %s \n", err)
 		}
+		return fmt.Errorf("fatal error config file: %w", err)
 	}
 	viper.Set(context, viperContext)
 

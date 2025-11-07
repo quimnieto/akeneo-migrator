@@ -68,9 +68,8 @@ func (s *Service) Sync(ctx context.Context, entityName string) (*SyncResult, err
 			return nil, fmt.Errorf("could not extract attribute code from attribute")
 		}
 
-		err := s.destRepo.SaveAttribute(ctx, entityName, attributeCode, attribute)
-		if err != nil {
-			return nil, fmt.Errorf("error creating/updating attribute %s in destination: %w", attributeCode, err)
+		if attrErr := s.destRepo.SaveAttribute(ctx, entityName, attributeCode, attribute); attrErr != nil {
+			return nil, fmt.Errorf("error creating/updating attribute %s in destination: %w", attributeCode, attrErr)
 		}
 	}
 

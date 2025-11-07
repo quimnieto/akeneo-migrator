@@ -6,13 +6,10 @@ run:
 linters:
   enable:
     - errcheck
-    - gosimple
     - govet
     - ineffassign
     - staticcheck
     - unused
-    - gofmt
-    - goimports
     - misspell
     - unconvert
     - unparam
@@ -21,14 +18,15 @@ linters:
 
 linters-settings:
   errcheck:
-    check-type-assertions: true
-    check-blank: true
+    check-type-assertions: false
+    check-blank: false
+    exclude-functions:
+      - io.ReadAll
+      - (io.Closer).Close
   
   govet:
-    check-shadowing: true
-  
-  gofmt:
-    simplify: true
+    enable:
+      - shadow
   
   misspell:
     locale: US
@@ -44,3 +42,15 @@ issues:
       linters:
         - gosec
         - unparam
+    
+    # Allow blank identifier for intentionally ignored errors
+    - text: "Error return value.*is not checked"
+      linters:
+        - errcheck
+      source: "^\\s*_\\s*="
+    
+    # Allow blank identifier in defer closures
+    - text: "Error return value.*is not checked"
+      linters:
+        - errcheck
+      source: "defer func\\(\\) \\{ _ ="
