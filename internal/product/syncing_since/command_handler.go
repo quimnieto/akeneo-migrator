@@ -1,4 +1,4 @@
-package syncing
+package syncing_since
 
 import (
 	"context"
@@ -6,7 +6,7 @@ import (
 	"akeneo-migrator/kit/bus"
 )
 
-// CommandHandler handles product sync commands
+// CommandHandler handles sync products since commands
 type CommandHandler struct {
 	service *Service
 }
@@ -20,12 +20,12 @@ func NewCommandHandler(service *Service) *CommandHandler {
 
 // Handle executes the sync command
 func (h *CommandHandler) Handle(ctx context.Context, msg bus.Message) (bus.Response, error) {
-	cmd, ok := msg.(SyncProductCommand)
+	cmd, ok := msg.(SyncProductsSinceCommand)
 	if !ok {
 		return bus.Response{}, nil
 	}
 
-	result, err := h.service.Sync(ctx, cmd.Identifier)
+	result, err := h.service.Sync(ctx, cmd.UpdatedSince)
 	if err != nil {
 		return bus.Response{Error: err}, err
 	}

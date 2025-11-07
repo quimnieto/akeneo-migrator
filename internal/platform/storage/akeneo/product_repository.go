@@ -2,6 +2,7 @@ package akeneo
 
 import (
 	"context"
+	"fmt"
 
 	"akeneo-migrator/internal/platform/client/akeneo"
 	"akeneo-migrator/internal/product"
@@ -135,6 +136,36 @@ func (r *DestProductRepository) FindModelsByParent(ctx context.Context, parentCo
 	models, err := r.client.GetProductModelsByParent(parentCode)
 	if err != nil {
 		return nil, err
+	}
+
+	result := make([]product.ProductModel, len(models))
+	for i, m := range models {
+		result[i] = product.ProductModel(m)
+	}
+
+	return result, nil
+}
+
+// FindProductsUpdatedSince retrieves all products updated since a specific date
+func (r *SourceProductRepository) FindProductsUpdatedSince(ctx context.Context, updatedSince string) ([]product.Product, error) {
+	products, err := r.client.GetProductsUpdatedSince(updatedSince)
+	if err != nil {
+		return nil, fmt.Errorf("error fetching updated products: %w", err)
+	}
+
+	result := make([]product.Product, len(products))
+	for i, p := range products {
+		result[i] = product.Product(p)
+	}
+
+	return result, nil
+}
+
+// FindModelsUpdatedSince retrieves all product models updated since a specific date
+func (r *SourceProductRepository) FindModelsUpdatedSince(ctx context.Context, updatedSince string) ([]product.ProductModel, error) {
+	models, err := r.client.GetProductModelsUpdatedSince(updatedSince)
+	if err != nil {
+		return nil, fmt.Errorf("error fetching updated product models: %w", err)
 	}
 
 	result := make([]product.ProductModel, len(models))

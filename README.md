@@ -92,8 +92,8 @@ This will:
 # Sync complete hierarchy (common → models → products)
 ./akeneo-migrator sync-product COMMON-001
 
-# Sync only a single product (no hierarchy)
-./akeneo-migrator sync-product SKU-12345 --single
+# With debug mode
+./akeneo-migrator sync-product COMMON-001 --debug
 ```
 
 This will synchronize:
@@ -123,6 +123,18 @@ This will synchronize a single attribute definition from source to destination.
 ```
 
 This will synchronize a single category from source to destination.
+
+### Synchronize Updated Products
+
+```bash
+# Sync all products updated since a specific date
+./akeneo-migrator sync-updated-products 2024-01-01T00:00:00
+
+# Sync last 24 hours
+./akeneo-migrator sync-updated-products $(date -u -d '1 day ago' '+%Y-%m-%dT%H:%M:%S')
+```
+
+This will synchronize all products and their complete hierarchies that have been updated since the specified date.
 
 ### Debug Mode
 

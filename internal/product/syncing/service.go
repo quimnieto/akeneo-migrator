@@ -31,34 +31,8 @@ type SyncResult struct {
 	TotalSynced    int
 }
 
-// Sync synchronizes a single product from source to destination
-func (s *Service) Sync(ctx context.Context, identifier string) (*SyncResult, error) {
-	result := &SyncResult{
-		Identifier: identifier,
-	}
-
-	// 1. Get product from source
-	productData, err := s.sourceRepo.FindByIdentifier(ctx, identifier)
-	if err != nil {
-		return nil, fmt.Errorf("error fetching product from source: %w", err)
-	}
-
-	// 2. Save product to destination
-	err = s.destRepo.Save(ctx, identifier, productData)
-	if err != nil {
-		result.Success = false
-		result.Error = err.Error()
-		return result, fmt.Errorf("error saving product to destination: %w", err)
-	}
-
-	result.Success = true
-	result.ProductsSynced = 1
-	result.TotalSynced = 1
-	return result, nil
-}
-
-// SyncHierarchy synchronizes a complete product hierarchy (common → models → products)
-func (s *Service) SyncHierarchy(ctx context.Context, commonIdentifier string) (*SyncResult, error) {
+// Sync synchronizes a complete product hierarchy (common → models → products)
+func (s *Service) Sync(ctx context.Context, commonIdentifier string) (*SyncResult, error) {
 	result := &SyncResult{
 		Identifier: commonIdentifier,
 	}

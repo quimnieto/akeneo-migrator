@@ -1269,3 +1269,191 @@ func (c *Client) cleanCategory(categoryData Category) Category {
 
 	return cleaned
 }
+
+// GetProductsUpdatedSince retrieves all products updated since a specific date
+func (c *Client) GetProductsUpdatedSince(updatedSince string) ([]Product, error) {
+	if err := c.ensureValidToken(); err != nil {
+		return nil, err
+	}
+
+	// Parse the input date and ensure it's in UTC
+	var parsedTime time.Time
+	var err error
+
+	// Try parsing with timezone first
+	parsedTime, err = time.Parse(time.RFC3339, updatedSince)
+	if err != nil {
+		// Try parsing without timezone (assume UTC)
+		parsedTime, err = time.Parse("2006-01-02T15:04:05", updatedSince)
+		if err != nil {
+			// Try with space instead of T
+			parsedTime, err = time.Parse("2006-01-02 15:04:05", updatedSince)
+			if err != nil {
+				return nil, fmt.Errorf("invalid date format: %s (expected ISO 8601 format like 2024-01-01T00:00:00)", updatedSince)
+			}
+		}
+	}
+
+	utcTime := parsedTime.UTC()
+	akeneoDate := utcTime.Format("2006-01-02 15:04:05")
+
+	var allProducts []Product
+	page := 1
+	limit := 100
+
+	for {
+		// Build search query JSON: filter by updated date and only root products (no parent)
+		searchQuery := fmt.Sprintf(
+			`{"updated":[{"operator":">","value":"%s"}],"parent":[{"operator":"EMPTY"}]}`,
+			akeneoDate,
+		)
+
+		// Build URL using url.Values for proper encoding
+		baseURL := fmt.Sprintf("%s/api/rest/v1/products", c.config.Host)
+		params := url.Values{}
+		params.Add("search", searchQuery)
+		params.Add("page", fmt.Sprintf("%d", page))
+		params.Add("limit", fmt.Sprintf("%d", limit))
+
+		fullURL := baseURL + "?" + params.Encode()
+
+		req, err := http.NewRequest("GET", fullURL, nil)
+		if err != nil {
+			return nil, err
+		}
+
+		req.Header.Set("Authorization", "Bearer "+c.accessToken)
+		req.Header.Set("Content-Type", "application/json")
+
+		resp, err := c.httpClient.Do(req)
+		if err != nil {
+			return nil, err
+		}
+		defer func() { _ = resp.Body.Close() }()
+
+		if resp.StatusCode != http.StatusOK {
+			body, _ := io.ReadAll(resp.Body)
+			return nil, fmt.Errorf("error fetching updated products: %d - %s", resp.StatusCode, string(body))
+		}
+
+		var response struct {
+			Embedded struct {
+				Items []Product `json:"items"`
+			} `json:"_embedded"`
+			Links struct {
+				Next *struct {
+					Href string `json:"href"`
+				} `json:"next"`
+			} `json:"_links"`
+		}
+
+		if err := json.NewDecoder(resp.Body).Decode(&response); err != nil {
+			return nil, err
+		}
+
+		allProducts = append(allProducts, response.Embedded.Items...)
+
+		if response.Links.Next == nil {
+			break
+		}
+
+		page++
+	}
+
+	fmt.Printf("🔍 [DEBUG] Total products fetched: %d\n", len(allProducts))
+	return allProducts, nil
+}
+
+// GetProductModelsUpdatedSince retrieves all product models updated since a specific date
+func (c *Client) GetProductModelsUpdatedSince(updatedSince string) ([]ProductModel, error) {
+	if err := c.ensureValidToken(); err != nil {
+		return nil, err
+	}
+
+	// Parse the input date and ensure it's in UTC
+	var parsedTime time.Time
+	var err error
+
+	// Try parsing with timezone first
+	parsedTime, err = time.Parse(time.RFC3339, updatedSince)
+	if err != nil {
+		// Try parsing without timezone (assume UTC)
+		parsedTime, err = time.Parse("2006-01-02T15:04:05", updatedSince)
+		if err != nil {
+			// Try with space instead of T
+			parsedTime, err = time.Parse("2006-01-02 15:04:05", updatedSince)
+			if err != nil {
+				return nil, fmt.Errorf("invalid date format: %s (expected ISO 8601 format like 2024-01-01T00:00:00)", updatedSince)
+			}
+		}
+	}
+
+	// Convert to UTC and format as yyyy-mm-dd hh:mm:ss (Akeneo API format per documentation)
+	utcTime := parsedTime.UTC()
+	akeneoDate := utcTime.Format("2006-01-02 15:04:05") // Format: yyyy-mm-dd hh:mm:ss
+
+	var allModels []ProductModel
+	page := 1
+	limit := 100
+
+	for {
+		// Build search query JSON: filter by updated date and only root models (no parent)
+		searchQuery := fmt.Sprintf(
+			`{"updated":[{"operator":">","value":"%s"}],"parent":[{"operator":"EMPTY"}]}`,
+			akeneoDate,
+		)
+
+		// Build URL using url.Values for proper encoding
+		baseURL := fmt.Sprintf("%s/api/rest/v1/product-models", c.config.Host)
+		params := url.Values{}
+		params.Add("search", searchQuery)
+		params.Add("page", fmt.Sprintf("%d", page))
+		params.Add("limit", fmt.Sprintf("%d", limit))
+
+		fullURL := baseURL + "?" + params.Encode()
+
+		req, err := http.NewRequest("GET", fullURL, nil)
+		if err != nil {
+			return nil, err
+		}
+
+		req.Header.Set("Authorization", "Bearer "+c.accessToken)
+		req.Header.Set("Content-Type", "application/json")
+
+		resp, err := c.httpClient.Do(req)
+		if err != nil {
+			return nil, err
+		}
+		defer func() { _ = resp.Body.Close() }()
+
+		if resp.StatusCode != http.StatusOK {
+			body, _ := io.ReadAll(resp.Body)
+			return nil, fmt.Errorf("error fetching updated product models: %d - %s", resp.StatusCode, string(body))
+		}
+
+		var response struct {
+			Embedded struct {
+				Items []ProductModel `json:"items"`
+			} `json:"_embedded"`
+			Links struct {
+				Next *struct {
+					Href string `json:"href"`
+				} `json:"next"`
+			} `json:"_links"`
+		}
+
+		if err := json.NewDecoder(resp.Body).Decode(&response); err != nil {
+			return nil, err
+		}
+
+		allModels = append(allModels, response.Embedded.Items...)
+
+		if response.Links.Next == nil {
+			break
+		}
+
+		page++
+	}
+
+	return allModels, nil
+}
