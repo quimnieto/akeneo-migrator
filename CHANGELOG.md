@@ -5,7 +5,14 @@ All notable changes to this project will be documented in this file.
 ## [Unreleased]
 
 ### Added
-- Attribute synchronization feature
+- **Command Bus Architecture**
+  - In-memory command bus implementation
+  - Command/Handler pattern for all sync operations
+  - Middleware support (Logging)
+  - Centralized command dispatching
+  - Documentation in COMMAND_BUS.md
+  
+- **Attribute synchronization feature**
   - New `sync-attribute` command to sync individual attributes
   - Domain interfaces for attribute operations
   - Akeneo client methods for attribute API
@@ -13,6 +20,8 @@ All notable changes to this project will be documented in this file.
   - Documentation in ATTRIBUTE_SYNC_FEATURE.md
 
 ### Changed
+- **Refactored Bootstrap**: Now uses Command Bus instead of direct service calls
+- **Simplified Application struct**: Only contains Config and CommandBus
 - Updated golangci-lint configuration to v2 format
 - Improved error handling with explicit blank identifier usage
 - Fixed shadow variable errors in syncing services
