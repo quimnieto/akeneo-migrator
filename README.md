@@ -100,6 +100,18 @@ This will synchronize:
 - **Simple products**: Common → Child Products (2 levels)
 - **Configurable products**: Common → Models → Variant Products (3 levels)
 
+### Synchronize an Attribute
+
+```bash
+# Sync a single attribute
+./akeneo-migrator sync-attribute sku
+
+# Sync with debug mode
+./akeneo-migrator sync-attribute description --debug
+```
+
+This will synchronize a single attribute definition from source to destination.
+
 ### Debug Mode
 
 ```bash

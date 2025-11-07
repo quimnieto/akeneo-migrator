@@ -1,0 +1,62 @@
+# Changelog
+
+All notable changes to this project will be documented in this file.
+
+## [Unreleased]
+
+### Added
+- Attribute synchronization feature
+  - New `sync-attribute` command to sync individual attributes
+  - Domain interfaces for attribute operations
+  - Akeneo client methods for attribute API
+  - Complete test coverage for attribute syncing
+  - Documentation in ATTRIBUTE_SYNC_FEATURE.md
+
+### Changed
+- Updated golangci-lint configuration to v2 format
+- Improved error handling with explicit blank identifier usage
+- Fixed shadow variable errors in syncing services
+
+### Fixed
+- CI pipeline compatibility with Go 1.25.0 (local) and Go 1.23 (CI)
+- golangci-lint configuration for latest version (v1.64.8)
+- Error checking for all defer Close() operations
+- Type assertion error checking
+
+## [0.2.0] - 2024-01-XX
+
+### Added
+- Product hierarchy synchronization
+  - Support for simple products (2-level hierarchy)
+  - Support for configurable products (3-level hierarchy)
+  - `--single` flag to sync individual products
+  - Recursive hierarchy traversal
+  - Progress reporting for large hierarchies
+
+### Changed
+- Split Repository interface into SourceRepository and DestRepository
+- Improved error messages with detailed validation errors
+- Enhanced field cleaning for API compatibility
+
+## [0.1.0] - 2024-01-XX
+
+### Added
+- Initial release
+- Reference Entity synchronization
+  - Entity definition sync
+  - Attribute sync with field normalization
+  - Record sync with metadata cleaning
+- Hexagonal architecture implementation
+- OAuth2 authentication with token refresh
+- Pagination handling for large datasets
+- Comprehensive error handling
+- CI/CD pipeline with GitHub Actions
+- Build system with Makefile
+- golangci-lint integration
+- Test coverage reporting
+
+### Features
+- `sync` command for Reference Entities
+- Debug mode for troubleshooting
+- JSON configuration support
+- Environment variable configuration
