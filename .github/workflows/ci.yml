@@ -71,11 +71,16 @@ jobs:
         sed -i 's/go 1.25.0/go 1.23/' go.mod
         go mod tidy
 
+    - name: Download dependencies
+      run: go mod download
+
     - name: Run golangci-lint
       uses: golangci/golangci-lint-action@v4
       with:
         version: v1.62.2
         args: --timeout=5m
+        skip-cache: true
+        skip-pkg-cache: true
 
   build:
     name: Build
