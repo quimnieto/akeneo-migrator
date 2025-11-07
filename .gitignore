@@ -2,10 +2,18 @@
 .env
 
 # Local configuration files
+configs/*/settings.local.json
+configs/akeneo-migrator/settings.local.json
 configs/settings.local.json
 
 # Binary
 akeneo-migrator
+bin/
+
+# Coverage
+coverage.out
+coverage.html
+*.coverprofile
 
 # JetBrains IDE
 .idea/
@@ -22,3 +30,8 @@ akeneo-migrator
 *.test
 *.out
 go.work
+go.work.sum
+
+# Build artifacts
+dist/
+build/

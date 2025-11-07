@@ -1,13 +1,28 @@
 # Akeneo Migrator
 
+[![CI](https://github.com/YOUR_USERNAME/akeneo-migrator/workflows/CI/badge.svg)](https://github.com/YOUR_USERNAME/akeneo-migrator/actions)
+[![Go Report Card](https://goreportcard.com/badge/github.com/YOUR_USERNAME/akeneo-migrator)](https://goreportcard.com/report/github.com/YOUR_USERNAME/akeneo-migrator)
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
+
 CLI tool to synchronize data between Akeneo PIM instances.
 
 ## Installation
+
+### Using Make (Recommended)
+
+```bash
+make install  # Install dependencies
+make build    # Build the application
+```
+
+### Manual Installation
 
 ```bash
 go mod tidy
 go build -o akeneo-migrator ./cmd/app
 ```
+
+The binary will be available at `./bin/akeneo-migrator` (with Make) or `./akeneo-migrator` (manual).
 
 ## Configuration
 
@@ -168,14 +183,37 @@ Verify your credentials in the configuration file:
 - Username and Password are valid
 - API URL is accessible
 
+## Development
+
+See [DEVELOPMENT.md](DEVELOPMENT.md) for detailed development instructions.
+
+### Quick Commands
+
+```bash
+make help          # Show all available commands
+make test          # Run tests
+make test-coverage # Run tests with coverage
+make lint          # Run linter
+make check         # Run all checks (fmt, vet, test)
+```
+
 ## Contributing
 
 1. Fork the repository
 2. Create a feature branch
 3. Make your changes
-4. Add tests
-5. Submit a pull request
+4. Run tests: `make test`
+5. Format code: `make fmt`
+6. Submit a pull request
+
+## CI/CD
+
+The project uses GitHub Actions for continuous integration:
+- ✅ Tests on Go 1.21, 1.22, 1.23
+- ✅ Linting with golangci-lint
+- ✅ Security scanning with gosec
+- ✅ Build verification
 
 ## License
 
-See LICENSE file for details.
+See LICENSE.md file for details.
