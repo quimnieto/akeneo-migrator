@@ -19,6 +19,16 @@ func NewSourceReferenceEntityRepository(client *akeneo.Client) *SourceReferenceE
 	}
 }
 
+// FindEntity retrieves a Reference Entity definition
+func (r *SourceReferenceEntityRepository) FindEntity(ctx context.Context, entityCode string) (reference_entity.Entity, error) {
+	entity, err := r.client.GetReferenceEntity(entityCode)
+	if err != nil {
+		return nil, err
+	}
+
+	return reference_entity.Entity(entity), nil
+}
+
 // FindAll retrieves all records from a Reference Entity
 func (r *SourceReferenceEntityRepository) FindAll(ctx context.Context, entityName string) ([]reference_entity.Record, error) {
 	records, err := r.client.GetReferenceEntityRecords(entityName)
@@ -45,6 +55,23 @@ func NewDestReferenceEntityRepository(client *akeneo.Client) *DestReferenceEntit
 	return &DestReferenceEntityRepository{
 		client: client,
 	}
+}
+
+// FindEntity retrieves a Reference Entity definition
+func (r *DestReferenceEntityRepository) FindEntity(ctx context.Context, entityCode string) (reference_entity.Entity, error) {
+	entity, err := r.client.GetReferenceEntity(entityCode)
+	if err != nil {
+		return nil, err
+	}
+
+	return reference_entity.Entity(entity), nil
+}
+
+// SaveEntity creates or updates a Reference Entity definition
+func (r *DestReferenceEntityRepository) SaveEntity(ctx context.Context, entityCode string, entity reference_entity.Entity) error {
+	// Convert from reference_entity.Entity to akeneo.ReferenceEntity
+	akeneoEntity := akeneo.ReferenceEntity(entity)
+	return r.client.PatchReferenceEntity(entityCode, akeneoEntity)
 }
 
 // FindAll retrieves all records from a Reference Entity

@@ -63,7 +63,11 @@ cp .env.example .env
 ./akeneo-migrator sync brands
 ```
 
-This will synchronize all records from the "brands" Reference Entity from the source Akeneo to the destination.
+This will:
+1. **Synchronize the Reference Entity definition** (structure, attributes, etc.)
+   - If the entity doesn't exist in destination, it will be created
+   - If it exists, it will be updated with the source definition
+2. **Synchronize all records** from the "brands" Reference Entity from source to destination
 
 ### Debug Mode
 

@@ -38,6 +38,9 @@ type TokenResponse struct {
 // ReferenceEntityRecord represents a Reference Entity record
 type ReferenceEntityRecord map[string]interface{}
 
+// ReferenceEntity represents a Reference Entity definition
+type ReferenceEntity map[string]interface{}
+
 // AkeneoErrorResponse represents an Akeneo error response
 type AkeneoErrorResponse struct {
 	Code    int                `json:"code"`
@@ -124,7 +127,7 @@ func (c *Client) GetReferenceEntityRecords(entityName string) ([]ReferenceEntity
 	limit := 100
 
 	for {
-		url := fmt.Sprintf("%s/api/rest/v1/reference-entities/%s/records?page=%d&limit=%d", 
+		url := fmt.Sprintf("%s/api/rest/v1/reference-entities/%s/records?page=%d&limit=%d",
 			c.config.Host, entityName, page, limit)
 
 		req, err := http.NewRequest("GET", url, nil)
@@ -188,7 +191,7 @@ func (c *Client) PatchReferenceEntityRecord(entityName, code string, record Refe
 		return err
 	}
 
-	url := fmt.Sprintf("%s/api/rest/v1/reference-entities/%s/records/%s", 
+	url := fmt.Sprintf("%s/api/rest/v1/reference-entities/%s/records/%s",
 		c.config.Host, entityName, code)
 
 	req, err := http.NewRequest("PATCH", url, bytes.NewBuffer(jsonData))
@@ -207,7 +210,7 @@ func (c *Client) PatchReferenceEntityRecord(entityName, code string, record Refe
 
 	if resp.StatusCode != http.StatusOK && resp.StatusCode != http.StatusCreated && resp.StatusCode != http.StatusNoContent {
 		body, _ := io.ReadAll(resp.Body)
-		
+
 		// For 422 errors, try to parse Akeneo error response
 		if resp.StatusCode == http.StatusUnprocessableEntity {
 			var errorResponse AkeneoErrorResponse
@@ -215,7 +218,7 @@ func (c *Client) PatchReferenceEntityRecord(entityName, code string, record Refe
 				return fmt.Errorf("validation error in record %s: %s", code, c.formatAkeneoErrors(errorResponse))
 			}
 		}
-		
+
 		return fmt.Errorf("error updating record %s: %d - %s", code, resp.StatusCode, string(body))
 	}
 
@@ -225,7 +228,7 @@ func (c *Client) PatchReferenceEntityRecord(entityName, code string, record Refe
 // cleanRecord removes fields that should not be sent in write operations
 func (c *Client) cleanRecord(record ReferenceEntityRecord) ReferenceEntityRecord {
 	cleaned := make(ReferenceEntityRecord)
-	
+
 	// List of fields to exclude
 	excludedFields := map[string]bool{
 		"_links":                true,
@@ -233,7 +236,7 @@ func (c *Client) cleanRecord(record ReferenceEntityRecord) ReferenceEntityRecord
 		"updated":               true,
 		"reference_entity_code": true, // Metadata field that causes 422 error
 	}
-	
+
 	for key, value := range record {
 		// Exclude metadata fields
 		if !excludedFields[key] {
@@ -243,7 +246,7 @@ func (c *Client) cleanRecord(record ReferenceEntityRecord) ReferenceEntityRecord
 			}
 		}
 	}
-	
+
 	return cleaned
 }
 
@@ -252,12 +255,12 @@ func (c *Client) formatAkeneoErrors(errorResponse AkeneoErrorResponse) string {
 	if len(errorResponse.Errors) == 0 {
 		return errorResponse.Message
 	}
-	
+
 	var errorMessages []string
 	for _, fieldError := range errorResponse.Errors {
 		errorMessages = append(errorMessages, fmt.Sprintf("Field '%s': %s", fieldError.Property, fieldError.Message))
 	}
-	
+
 	return fmt.Sprintf("%s. Details: %s", errorResponse.Message, strings.Join(errorMessages, "; "))
 }
 
@@ -266,4 +269,112 @@ func (c *Client) DebugRecord(entityName, code string, record ReferenceEntityReco
 	cleanRecord := c.cleanRecord(record)
 	jsonData, _ := json.MarshalIndent(cleanRecord, "", "  ")
 	fmt.Printf("🔍 DEBUG - Record %s/%s:\n%s\n", entityName, code, string(jsonData))
+}
+
+// Get ReferenceEntity retrieves a Reference Entity definition
+func (c *Client) GetReferenceEntity(entityCode string) (ReferenceEntity, error) {
+	if err := c.ensureValidToken(); err != nil {
+		return nil, err
+	}
+
+	url := fmt.Sprintf("%s/api/rest/v1/reference-entities/%s", c.config.Host, entityCode)
+
+	req, err := http.NewRequest("GET", url, nil)
+	if err != nil {
+		return nil, err
+	}
+
+	req.Header.Set("Authorization", "Bearer "+c.accessToken)
+	req.Header.Set("Content-Type", "application/json")
+
+	resp, err := c.httpClient.Do(req)
+	if err != nil {
+		return nil, err
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode == http.StatusNotFound {
+		return nil, fmt.Errorf("reference entity '%s' not found", entityCode)
+	}
+
+	if resp.StatusCode != http.StatusOK {
+		body, _ := io.ReadAll(resp.Body)
+		return nil, fmt.Errorf("error fetching reference entity: %d - %s", resp.StatusCode, string(body))
+	}
+
+	var entity ReferenceEntity
+	if err := json.NewDecoder(resp.Body).Decode(&entity); err != nil {
+		return nil, err
+	}
+
+	return entity, nil
+}
+
+// PatchReferenceEntity creates or updates a Reference Entity definition
+func (c *Client) PatchReferenceEntity(entityCode string, entity ReferenceEntity) error {
+	if err := c.ensureValidToken(); err != nil {
+		return err
+	}
+
+	// Clean fields that should not be sent
+	cleanEntity := c.cleanReferenceEntity(entity)
+
+	jsonData, err := json.Marshal(cleanEntity)
+	if err != nil {
+		return err
+	}
+
+	url := fmt.Sprintf("%s/api/rest/v1/reference-entities/%s", c.config.Host, entityCode)
+
+	req, err := http.NewRequest("PATCH", url, bytes.NewBuffer(jsonData))
+	if err != nil {
+		return err
+	}
+
+	req.Header.Set("Authorization", "Bearer "+c.accessToken)
+	req.Header.Set("Content-Type", "application/json")
+
+	resp, err := c.httpClient.Do(req)
+	if err != nil {
+		return err
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode != http.StatusOK && resp.StatusCode != http.StatusCreated && resp.StatusCode != http.StatusNoContent {
+		body, _ := io.ReadAll(resp.Body)
+
+		// For 422 errors, try to parse Akeneo error response
+		if resp.StatusCode == http.StatusUnprocessableEntity {
+			var errorResponse AkeneoErrorResponse
+			if parseErr := json.Unmarshal(body, &errorResponse); parseErr == nil {
+				return fmt.Errorf("validation error in reference entity %s: %s", entityCode, c.formatAkeneoErrors(errorResponse))
+			}
+		}
+
+		return fmt.Errorf("error updating reference entity %s: %d - %s", entityCode, resp.StatusCode, string(body))
+	}
+
+	return nil
+}
+
+// cleanReferenceEntity removes fields that should not be sent in write operations
+func (c *Client) cleanReferenceEntity(entity ReferenceEntity) ReferenceEntity {
+	cleaned := make(ReferenceEntity)
+
+	// List of fields to exclude
+	excludedFields := map[string]bool{
+		"_links": true,
+	}
+
+	for key, value := range entity {
+		// Exclude metadata fields
+		if !excludedFields[key] {
+			// Clean null or empty values that may cause issues
+			if value != nil {
+				cleaned[key] = value
+			}
+		}
+	}
+
+	return cleaned
 }

@@ -36,14 +36,26 @@ type SyncError struct {
 	Message string
 }
 
-// Sync synchronizes all records from a Reference Entity from source to destination
+// Sync synchronizes a Reference Entity (definition + records) from source to destination
 func (s *Service) Sync(ctx context.Context, entityName string) (*SyncResult, error) {
 	result := &SyncResult{
 		EntityName: entityName,
 		Errors:     make([]SyncError, 0),
 	}
 
-	// 1. Get all records from source
+	// 1. Get Reference Entity definition from source
+	entity, err := s.sourceRepo.FindEntity(ctx, entityName)
+	if err != nil {
+		return nil, fmt.Errorf("error fetching reference entity definition from source: %w", err)
+	}
+
+	// 2. Create or update Reference Entity in destination
+	err = s.destRepo.SaveEntity(ctx, entityName, entity)
+	if err != nil {
+		return nil, fmt.Errorf("error creating/updating reference entity in destination: %w", err)
+	}
+
+	// 3. Get all records from source
 	records, err := s.sourceRepo.FindAll(ctx, entityName)
 	if err != nil {
 		return nil, fmt.Errorf("error fetching records from source: %w", err)
@@ -51,7 +63,7 @@ func (s *Service) Sync(ctx context.Context, entityName string) (*SyncResult, err
 
 	result.TotalRecords = len(records)
 
-	// 2. Sync each record to destination
+	// 4. Sync each record to destination
 	for _, record := range records {
 		code, ok := record["code"].(string)
 		if !ok {

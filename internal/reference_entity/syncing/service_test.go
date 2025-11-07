@@ -9,9 +9,17 @@ import (
 	"akeneo-migrator/internal/reference_entity/syncing"
 )
 
-// MockSourceRepository es un mock del repository de origen para testing
+// MockSourceRepository is a mock of the source repository for testing
 type MockSourceRepository struct {
-	findAllFunc func(ctx context.Context, entityName string) ([]reference_entity.Record, error)
+	findEntityFunc func(ctx context.Context, entityCode string) (reference_entity.Entity, error)
+	findAllFunc    func(ctx context.Context, entityName string) ([]reference_entity.Record, error)
+}
+
+func (m *MockSourceRepository) FindEntity(ctx context.Context, entityCode string) (reference_entity.Entity, error) {
+	if m.findEntityFunc != nil {
+		return m.findEntityFunc(ctx, entityCode)
+	}
+	return reference_entity.Entity{"code": entityCode}, nil
 }
 
 func (m *MockSourceRepository) FindAll(ctx context.Context, entityName string) ([]reference_entity.Record, error) {
@@ -21,10 +29,26 @@ func (m *MockSourceRepository) FindAll(ctx context.Context, entityName string) (
 	return nil, nil
 }
 
-// MockDestRepository es un mock del repository de destino para testing
+// MockDestRepository is a mock of the destination repository for testing
 type MockDestRepository struct {
-	findAllFunc func(ctx context.Context, entityName string) ([]reference_entity.Record, error)
-	saveFunc    func(ctx context.Context, entityName string, code string, record reference_entity.Record) error
+	findEntityFunc func(ctx context.Context, entityCode string) (reference_entity.Entity, error)
+	saveEntityFunc func(ctx context.Context, entityCode string, entity reference_entity.Entity) error
+	findAllFunc    func(ctx context.Context, entityName string) ([]reference_entity.Record, error)
+	saveFunc       func(ctx context.Context, entityName string, code string, record reference_entity.Record) error
+}
+
+func (m *MockDestRepository) FindEntity(ctx context.Context, entityCode string) (reference_entity.Entity, error) {
+	if m.findEntityFunc != nil {
+		return m.findEntityFunc(ctx, entityCode)
+	}
+	return reference_entity.Entity{"code": entityCode}, nil
+}
+
+func (m *MockDestRepository) SaveEntity(ctx context.Context, entityCode string, entity reference_entity.Entity) error {
+	if m.saveEntityFunc != nil {
+		return m.saveEntityFunc(ctx, entityCode, entity)
+	}
+	return nil
 }
 
 func (m *MockDestRepository) FindAll(ctx context.Context, entityName string) ([]reference_entity.Record, error) {
