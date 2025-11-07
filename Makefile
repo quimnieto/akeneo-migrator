@@ -1,4 +1,4 @@
-.PHONY: help build test test-coverage clean run install lint fmt vet check deps
+.PHONY: help build test test-coverage clean run web install lint fmt vet check deps
 
 # Variables
 BINARY_NAME=akeneo-migrator
@@ -23,6 +23,7 @@ help:
 	@echo "  $(COLOR_GREEN)test-coverage$(COLOR_RESET) - Run tests with coverage report"
 	@echo "  $(COLOR_GREEN)clean$(COLOR_RESET)          - Remove build artifacts"
 	@echo "  $(COLOR_GREEN)run$(COLOR_RESET)            - Build and run the application"
+	@echo "  $(COLOR_GREEN)web$(COLOR_RESET)            - Build and start the web UI"
 	@echo "  $(COLOR_GREEN)install$(COLOR_RESET)        - Install dependencies"
 	@echo "  $(COLOR_GREEN)lint$(COLOR_RESET)           - Run linter (golangci-lint)"
 	@echo "  $(COLOR_GREEN)fmt$(COLOR_RESET)            - Format code"
@@ -61,6 +62,11 @@ clean:
 run: build
 	@echo "$(COLOR_BLUE)Running $(BINARY_NAME)...$(COLOR_RESET)"
 	@$(BUILD_DIR)/$(BINARY_NAME)
+
+## web: Build and start the web UI
+web: build
+	@echo "$(COLOR_BLUE)Starting Web UI...$(COLOR_RESET)"
+	@$(BUILD_DIR)/$(BINARY_NAME) web
 
 ## install: Install dependencies
 install:

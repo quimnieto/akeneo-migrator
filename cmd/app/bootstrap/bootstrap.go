@@ -11,6 +11,7 @@ import (
 	"akeneo-migrator/internal/platform/client/akeneo"
 	"akeneo-migrator/internal/platform/config"
 	akeneo_storage "akeneo-migrator/internal/platform/storage/akeneo"
+	"akeneo-migrator/internal/platform/web"
 	product_syncing "akeneo-migrator/internal/product/syncing"
 	product_syncing_since "akeneo-migrator/internal/product/syncing_since"
 	"akeneo-migrator/internal/reference_entity/syncing"
@@ -146,6 +147,9 @@ products, categories and other elements.`,
 
 	syncUpdatedProductsCmd := createSyncUpdatedProductsCommand(app)
 	rootCmd.AddCommand(syncUpdatedProductsCmd)
+
+	webCmd := createWebCommand(app)
+	rootCmd.AddCommand(webCmd)
 
 	// 12. Execute root command
 	return rootCmd.Execute()
@@ -512,6 +516,58 @@ func runSyncUpdatedProductsCommand(app *Application) func(cmd *cobra.Command, ar
 			fmt.Println("\n✅ Synchronization completed successfully!")
 		} else {
 			fmt.Println("\n⚠️  Synchronization completed with errors")
+		}
+	}
+}
+
+// createWebCommand creates the web UI command
+func createWebCommand(app *Application) *cobra.Command {
+	cmd := &cobra.Command{
+		Use:   "web",
+		Short: "Start the web UI server",
+		Long: `Starts a web server that provides a browser-based UI for executing commands.
+
+The web UI allows you to:
+- Execute all available commands from your browser
+- See real-time output
+- Manage multiple command executions
+
+Example:
+  akeneo-migrator web
+  akeneo-migrator web --port 8080`,
+		Run: runWebCommand(app),
+	}
+
+	// Add port flag
+	cmd.Flags().String("port", "3000", "Port to run the web server on")
+
+	return cmd
+}
+
+// runWebCommand starts the web server
+func runWebCommand(app *Application) func(cmd *cobra.Command, args []string) {
+	return func(cmd *cobra.Command, args []string) {
+		port, _ := cmd.Flags().GetString("port") //nolint:errcheck // flag has default value
+
+		// Get the path of the current executable
+		binaryPath, err := os.Executable()
+		if err != nil {
+			log.Printf("⚠️  Warning: Could not determine executable path, using default")
+			binaryPath = "./bin/akeneo-migrator"
+			if _, err := os.Stat(binaryPath); os.IsNotExist(err) {
+				binaryPath = "./akeneo-migrator"
+			}
+		}
+
+		fmt.Printf("🚀 Starting Akeneo Migrator Web UI\n")
+		fmt.Printf("📍 Server running on http://localhost:%s\n", port)
+		fmt.Printf("🔧 Using binary: %s\n", binaryPath)
+		fmt.Printf("Press Ctrl+C to stop\n\n")
+
+		server := web.NewServer(port, binaryPath)
+
+		if err := server.Start(); err != nil {
+			log.Fatalf("❌ Failed to start web server: %v\n", err)
 		}
 	}
 }

@@ -1,0 +1,40 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Akeneo Migrator - Web UI</title>
+    <link rel="stylesheet" href="/style.css">
+</head>
+<body>
+    <div class="container">
+        <header>
+            <h1>🚀 Akeneo Migrator</h1>
+            <p>Execute synchronization commands from your browser</p>
+        </header>
+
+        <div class="main-content">
+            <aside class="sidebar">
+                <h2>Commands</h2>
+                <div id="commands-list"></div>
+            </aside>
+
+            <main class="content">
+                <div id="command-form" class="command-form">
+                    <p class="placeholder">Select a command from the sidebar to get started</p>
+                </div>
+
+                <div class="terminal">
+                    <div class="terminal-header">
+                        <span>Output</span>
+                        <button id="clear-output" class="btn-clear">Clear</button>
+                    </div>
+                    <div id="output" class="terminal-content"></div>
+                </div>
+            </main>
+        </div>
+    </div>
+
+    <script src="/app.js"></script>
+</body>
+</html>

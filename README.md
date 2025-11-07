@@ -72,6 +72,20 @@ cp .env.example .env
 
 ## Usage
 
+### Web UI (Recommended)
+
+Start the web interface for a browser-based experience:
+
+```bash
+./bin/akeneo-migrator web
+```
+
+Then open **http://localhost:3000** in your browser.
+
+**📖 See [Web UI Documentation](internal/platform/web/README.md) for detailed information.**
+
+### Command Line
+
 ### Synchronize a Reference Entity
 
 ```bash

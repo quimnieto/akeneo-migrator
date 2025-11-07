@@ -1,0 +1,279 @@
+* {
+    margin: 0;
+    padding: 0;
+    box-sizing: border-box;
+}
+
+body {
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
+    background: #f5f5f5;
+    color: #333;
+}
+
+.container {
+    max-width: 1400px;
+    margin: 0 auto;
+    padding: 20px;
+}
+
+header {
+    background: white;
+    padding: 30px;
+    border-radius: 8px;
+    margin-bottom: 20px;
+    box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+}
+
+header h1 {
+    font-size: 32px;
+    margin-bottom: 8px;
+}
+
+header p {
+    color: #666;
+    font-size: 16px;
+}
+
+.main-content {
+    display: grid;
+    grid-template-columns: 300px 1fr;
+    gap: 20px;
+}
+
+.sidebar {
+    background: white;
+    padding: 20px;
+    border-radius: 8px;
+    box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+    height: fit-content;
+}
+
+.sidebar h2 {
+    font-size: 18px;
+    margin-bottom: 15px;
+    color: #333;
+}
+
+.command-item {
+    padding: 12px;
+    margin-bottom: 8px;
+    border-radius: 6px;
+    cursor: pointer;
+    transition: all 0.2s;
+    border: 2px solid transparent;
+}
+
+.command-item:hover {
+    background: #f0f0f0;
+}
+
+.command-item.active {
+    background: #e3f2fd;
+    border-color: #2196F3;
+}
+
+.command-item h3 {
+    font-size: 14px;
+    margin-bottom: 4px;
+    color: #333;
+}
+
+.command-item p {
+    font-size: 12px;
+    color: #666;
+}
+
+.content {
+    display: flex;
+    flex-direction: column;
+    gap: 20px;
+}
+
+.command-form {
+    background: white;
+    padding: 30px;
+    border-radius: 8px;
+    box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+}
+
+.command-form h2 {
+    font-size: 24px;
+    margin-bottom: 8px;
+}
+
+.command-form .description {
+    color: #666;
+    margin-bottom: 24px;
+}
+
+.form-group {
+    margin-bottom: 20px;
+}
+
+.form-group label {
+    display: block;
+    margin-bottom: 8px;
+    font-weight: 500;
+    color: #333;
+}
+
+.form-group input[type="text"],
+.form-group input[type="datetime-local"] {
+    width: 100%;
+    padding: 10px 12px;
+    border: 2px solid #ddd;
+    border-radius: 6px;
+    font-size: 14px;
+    transition: border-color 0.2s;
+}
+
+.form-group input:focus {
+    outline: none;
+    border-color: #2196F3;
+}
+
+.form-group input[type="checkbox"] {
+    margin-right: 8px;
+}
+
+.checkbox-label {
+    display: flex;
+    align-items: center;
+    cursor: pointer;
+}
+
+.btn-execute {
+    background: #2196F3;
+    color: white;
+    border: none;
+    padding: 12px 24px;
+    border-radius: 6px;
+    font-size: 16px;
+    font-weight: 500;
+    cursor: pointer;
+    transition: background 0.2s;
+}
+
+.btn-execute:hover {
+    background: #1976D2;
+}
+
+.btn-execute:disabled {
+    background: #ccc;
+    cursor: not-allowed;
+}
+
+.terminal {
+    background: #1e1e1e;
+    border-radius: 8px;
+    overflow: hidden;
+    box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+    height: 500px;
+    display: flex;
+    flex-direction: column;
+}
+
+.terminal-header {
+    background: #2d2d2d;
+    padding: 12px 16px;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    color: #fff;
+    font-size: 14px;
+}
+
+.btn-clear {
+    background: #444;
+    color: white;
+    border: none;
+    padding: 6px 12px;
+    border-radius: 4px;
+    font-size: 12px;
+    cursor: pointer;
+    transition: background 0.2s;
+}
+
+.btn-clear:hover {
+    background: #555;
+}
+
+.terminal-content {
+    padding: 16px;
+    font-family: 'Courier New', monospace;
+    font-size: 13px;
+    line-height: 1.5;
+    color: #d4d4d4;
+    overflow-y: auto;
+    overflow-x: auto;
+    flex: 1;
+    max-height: 100%;
+}
+
+.output-line {
+    margin-bottom: 2px;
+    white-space: pre-wrap;
+    word-break: break-all;
+}
+
+.output-line.stdout {
+    color: #d4d4d4;
+}
+
+.output-line.stderr {
+    color: #f48771;
+}
+
+.output-line.success {
+    color: #4ec9b0;
+}
+
+.output-line.error {
+    color: #f48771;
+}
+
+.output-line.info {
+    color: #569cd6;
+}
+
+.placeholder {
+    color: #999;
+    text-align: center;
+    padding: 40px;
+}
+
+.status-indicator {
+    display: inline-block;
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    margin-right: 8px;
+}
+
+.status-indicator.connected {
+    background: #4caf50;
+}
+
+.status-indicator.disconnected {
+    background: #f44336;
+}
+
+.status-indicator.running {
+    background: #ff9800;
+    animation: pulse 1s infinite;
+}
+
+@keyframes pulse {
+    0%, 100% { opacity: 1; }
+    50% { opacity: 0.5; }
+}
+
+@media (max-width: 768px) {
+    .main-content {
+        grid-template-columns: 1fr;
+    }
+    
+    .sidebar {
+        order: 2;
+    }
+}
