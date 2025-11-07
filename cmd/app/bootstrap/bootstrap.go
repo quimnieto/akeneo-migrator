@@ -146,7 +146,7 @@ func runSyncCommand(app *Application) func(cmd *cobra.Command, args []string) {
 		ctx := context.Background()
 
 		// Get debug flag
-		debug, _ := cmd.Flags().GetBool("debug")
+		debug, _ := cmd.Flags().GetBool("debug") //nolint:errcheck // flag is optional
 
 		fmt.Printf("🚀 Starting synchronization for entity: %s\n", entityName)
 		if debug {
@@ -194,10 +194,10 @@ func runSyncCommand(app *Application) func(cmd *cobra.Command, args []string) {
 // setupDefaultEnvironmentVariables sets up default environment variables
 func setupDefaultEnvironmentVariables() {
 	if os.Getenv("ENVIRONMENT") == "" {
-		os.Setenv("ENVIRONMENT", "local")
+		_ = os.Setenv("ENVIRONMENT", "local")
 	}
 	if os.Getenv("CONFIG_PATH") == "" {
-		os.Setenv("CONFIG_PATH", "akeneo-migrator")
+		_ = os.Setenv("CONFIG_PATH", "akeneo-migrator")
 	}
 }
 
@@ -235,8 +235,8 @@ func runSyncProductCommand(app *Application) func(cmd *cobra.Command, args []str
 		ctx := context.Background()
 
 		// Get flags
-		debug, _ := cmd.Flags().GetBool("debug")
-		single, _ := cmd.Flags().GetBool("single")
+		debug, _ := cmd.Flags().GetBool("debug")   //nolint:errcheck // flag is optional
+		single, _ := cmd.Flags().GetBool("single") //nolint:errcheck // flag is optional
 
 		fmt.Printf("🚀 Starting synchronization for product: %s\n", identifier)
 		if debug {

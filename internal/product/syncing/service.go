@@ -81,9 +81,9 @@ func (s *Service) SyncHierarchy(ctx context.Context, commonIdentifier string) (*
 		}
 	} else {
 		// Try as product model (configurable type)
-		commonModel, err := s.sourceRepo.FindModelByCode(ctx, commonIdentifier)
-		if err != nil {
-			return nil, fmt.Errorf("common '%s' not found as product or model: %w", commonIdentifier, err)
+		commonModel, modelErr := s.sourceRepo.FindModelByCode(ctx, commonIdentifier)
+		if modelErr != nil {
+			return nil, fmt.Errorf("common '%s' not found as product or model: %w", commonIdentifier, modelErr)
 		}
 
 		if err := s.destRepo.SaveModel(ctx, commonIdentifier, commonModel); err != nil {

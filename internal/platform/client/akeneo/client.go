@@ -90,7 +90,7 @@ func (c *Client) authenticate() error {
 	if err != nil {
 		return err
 	}
-	defer resp.Body.Close()
+	defer func() { _ = resp.Body.Close() }()
 
 	if resp.StatusCode != http.StatusOK {
 		body, _ := io.ReadAll(resp.Body)
@@ -142,7 +142,7 @@ func (c *Client) GetReferenceEntityRecords(entityName string) ([]ReferenceEntity
 		if err != nil {
 			return nil, err
 		}
-		defer resp.Body.Close()
+		defer func() { _ = resp.Body.Close() }()
 
 		if resp.StatusCode != http.StatusOK {
 			body, _ := io.ReadAll(resp.Body)
@@ -206,7 +206,7 @@ func (c *Client) PatchReferenceEntityRecord(entityName, code string, record Refe
 	if err != nil {
 		return err
 	}
-	defer resp.Body.Close()
+	defer func() { _ = resp.Body.Close() }()
 
 	if resp.StatusCode != http.StatusOK && resp.StatusCode != http.StatusCreated && resp.StatusCode != http.StatusNoContent {
 		body, _ := io.ReadAll(resp.Body)
@@ -267,8 +267,9 @@ func (c *Client) formatAkeneoErrors(errorResponse AkeneoErrorResponse) string {
 // DebugRecord prints the content of a record for debugging purposes
 func (c *Client) DebugRecord(entityName, code string, record ReferenceEntityRecord) {
 	cleanRecord := c.cleanRecord(record)
-	jsonData, _ := json.MarshalIndent(cleanRecord, "", "  ")
-	fmt.Printf("🔍 DEBUG - Record %s/%s:\n%s\n", entityName, code, string(jsonData))
+	if jsonData, err := json.MarshalIndent(cleanRecord, "", "  "); err == nil {
+		fmt.Printf("🔍 DEBUG - Record %s/%s:\n%s\n", entityName, code, string(jsonData))
+	}
 }
 
 // Get ReferenceEntity retrieves a Reference Entity definition
@@ -291,7 +292,7 @@ func (c *Client) GetReferenceEntity(entityCode string) (ReferenceEntity, error) 
 	if err != nil {
 		return nil, err
 	}
-	defer resp.Body.Close()
+	defer func() { _ = resp.Body.Close() }()
 
 	if resp.StatusCode == http.StatusNotFound {
 		return nil, fmt.Errorf("reference entity '%s' not found", entityCode)
@@ -338,7 +339,7 @@ func (c *Client) PatchReferenceEntity(entityCode string, entity ReferenceEntity)
 	if err != nil {
 		return err
 	}
-	defer resp.Body.Close()
+	defer func() { _ = resp.Body.Close() }()
 
 	if resp.StatusCode != http.StatusOK && resp.StatusCode != http.StatusCreated && resp.StatusCode != http.StatusNoContent {
 		body, _ := io.ReadAll(resp.Body)
@@ -402,7 +403,7 @@ func (c *Client) GetReferenceEntityAttributes(entityCode string) ([]ReferenceEnt
 	if err != nil {
 		return nil, err
 	}
-	defer resp.Body.Close()
+	defer func() { _ = resp.Body.Close() }()
 
 	if resp.StatusCode != http.StatusOK {
 		body, _ := io.ReadAll(resp.Body)
@@ -455,8 +456,9 @@ func (c *Client) PatchReferenceEntityAttribute(entityCode, attributeCode string,
 	}
 
 	// Debug: print original attribute
-	originalJSON, _ := json.MarshalIndent(attribute, "", "  ")
-	fmt.Printf("🔍 DEBUG - Original attribute %s:\n%s\n", attributeCode, string(originalJSON))
+	if originalJSON, err := json.MarshalIndent(attribute, "", "  "); err == nil {
+		fmt.Printf("🔍 DEBUG - Original attribute %s:\n%s\n", attributeCode, string(originalJSON))
+	}
 
 	// Clean fields that should not be sent
 	cleanAttribute := c.cleanReferenceEntityAttribute(attribute)
@@ -477,12 +479,14 @@ func (c *Client) PatchReferenceEntityAttribute(entityCode, attributeCode string,
 
 	// Additional debug: verify by unmarshalling back
 	var debugCheck map[string]interface{}
-	json.Unmarshal(jsonData, &debugCheck)
-	fmt.Printf("🔍 DEBUG - Labels type in JSON: %T, value: %v\n", debugCheck["labels"], debugCheck["labels"])
+	if err := json.Unmarshal(jsonData, &debugCheck); err == nil {
+		fmt.Printf("🔍 DEBUG - Labels type in JSON: %T, value: %v\n", debugCheck["labels"], debugCheck["labels"])
+	}
 
 	// Extra debug: check raw bytes of labels field
-	labelsJSON, _ := json.Marshal(debugCheck["labels"])
-	fmt.Printf("🔍 DEBUG - Labels as JSON bytes: %s\n", string(labelsJSON))
+	if labelsJSON, err := json.Marshal(debugCheck["labels"]); err == nil {
+		fmt.Printf("🔍 DEBUG - Labels as JSON bytes: %s\n", string(labelsJSON))
+	}
 
 	url := fmt.Sprintf("%s/api/rest/v1/reference-entities/%s/attributes/%s",
 		c.config.Host, entityCode, attributeCode)
@@ -499,7 +503,7 @@ func (c *Client) PatchReferenceEntityAttribute(entityCode, attributeCode string,
 	if err != nil {
 		return err
 	}
-	defer resp.Body.Close()
+	defer func() { _ = resp.Body.Close() }()
 
 	if resp.StatusCode != http.StatusOK && resp.StatusCode != http.StatusCreated && resp.StatusCode != http.StatusNoContent {
 		body, _ := io.ReadAll(resp.Body)
@@ -737,7 +741,7 @@ func (c *Client) GetProduct(identifier string) (Product, error) {
 	if err != nil {
 		return nil, err
 	}
-	defer resp.Body.Close()
+	defer func() { _ = resp.Body.Close() }()
 
 	if resp.StatusCode == http.StatusNotFound {
 		return nil, fmt.Errorf("product '%s' not found", identifier)
@@ -784,7 +788,7 @@ func (c *Client) PatchProduct(identifier string, productData Product) error {
 	if err != nil {
 		return err
 	}
-	defer resp.Body.Close()
+	defer func() { _ = resp.Body.Close() }()
 
 	if resp.StatusCode != http.StatusOK && resp.StatusCode != http.StatusCreated && resp.StatusCode != http.StatusNoContent {
 		body, _ := io.ReadAll(resp.Body)
@@ -847,7 +851,7 @@ func (c *Client) GetProductModel(code string) (ProductModel, error) {
 	if err != nil {
 		return nil, err
 	}
-	defer resp.Body.Close()
+	defer func() { _ = resp.Body.Close() }()
 
 	if resp.StatusCode == http.StatusNotFound {
 		return nil, fmt.Errorf("product model '%s' not found", code)
@@ -894,7 +898,7 @@ func (c *Client) PatchProductModel(code string, model ProductModel) error {
 	if err != nil {
 		return err
 	}
-	defer resp.Body.Close()
+	defer func() { _ = resp.Body.Close() }()
 
 	if resp.StatusCode != http.StatusOK && resp.StatusCode != http.StatusCreated && resp.StatusCode != http.StatusNoContent {
 		body, _ := io.ReadAll(resp.Body)
@@ -938,7 +942,7 @@ func (c *Client) GetProductsByParent(parentCode string) ([]Product, error) {
 		if err != nil {
 			return nil, err
 		}
-		defer resp.Body.Close()
+		defer func() { _ = resp.Body.Close() }()
 
 		if resp.StatusCode != http.StatusOK {
 			body, _ := io.ReadAll(resp.Body)
@@ -998,7 +1002,7 @@ func (c *Client) GetProductModelsByParent(parentCode string) ([]ProductModel, er
 		if err != nil {
 			return nil, err
 		}
-		defer resp.Body.Close()
+		defer func() { _ = resp.Body.Close() }()
 
 		if resp.StatusCode != http.StatusOK {
 			body, _ := io.ReadAll(resp.Body)
