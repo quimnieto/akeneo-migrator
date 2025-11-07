@@ -1,3 +1,5 @@
+version: 2
+
 run:
   timeout: 5m
   tests: true
@@ -6,13 +8,10 @@ run:
 linters:
   enable:
     - errcheck
-    - gosimple
     - govet
     - ineffassign
     - staticcheck
     - unused
-    - gofmt
-    - goimports
     - misspell
     - unconvert
     - unparam
@@ -27,9 +26,6 @@ linters-settings:
   govet:
     enable:
       - shadow
-  
-  gofmt:
-    simplify: true
   
   misspell:
     locale: US

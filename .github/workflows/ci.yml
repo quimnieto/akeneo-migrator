@@ -71,16 +71,11 @@ jobs:
         sed -i 's/go 1.25.0/go 1.23/' go.mod
         go mod tidy
 
-    - name: Download dependencies
-      run: go mod download
-
     - name: Run golangci-lint
-      uses: golangci/golangci-lint-action@v4
+      uses: golangci/golangci-lint-action@v6
       with:
-        version: v1.62.2
+        version: latest
         args: --timeout=5m
-        skip-cache: true
-        skip-pkg-cache: true
 
   build:
     name: Build
@@ -95,6 +90,11 @@ jobs:
       uses: actions/setup-go@v5
       with:
         go-version: '1.23'
+
+    - name: Temporarily adjust go.mod for CI
+      run: |
+        sed -i 's/go 1.25.0/go 1.23/' go.mod
+        go mod tidy
 
     - name: Build binary
       run: |
