@@ -67,7 +67,9 @@ jobs:
         go-version: '1.23'
     
     - name: Temporarily adjust go.mod for CI
-      run: sed -i 's/go 1.25.0/go 1.23/' go.mod
+      run: |
+        sed -i 's/go 1.25.0/go 1.23/' go.mod
+        go mod tidy
 
     - name: Run golangci-lint
       uses: golangci/golangci-lint-action@v4
