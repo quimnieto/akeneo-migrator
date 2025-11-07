@@ -175,3 +175,25 @@ func (r *SourceProductRepository) FindModelsUpdatedSince(ctx context.Context, up
 
 	return result, nil
 }
+
+// StreamProductsUpdatedSince processes products updated since a specific date in batches
+func (r *SourceProductRepository) StreamProductsUpdatedSince(ctx context.Context, updatedSince string, batchSize int, callback func([]product.Product) error) error {
+	return r.client.StreamProductsUpdatedSince(updatedSince, batchSize, func(products []akeneo.Product) error {
+		batch := make([]product.Product, len(products))
+		for i, p := range products {
+			batch[i] = product.Product(p)
+		}
+		return callback(batch)
+	})
+}
+
+// StreamModelsUpdatedSince processes product models updated since a specific date in batches
+func (r *SourceProductRepository) StreamModelsUpdatedSince(ctx context.Context, updatedSince string, batchSize int, callback func([]product.ProductModel) error) error {
+	return r.client.StreamProductModelsUpdatedSince(updatedSince, batchSize, func(models []akeneo.ProductModel) error {
+		batch := make([]product.ProductModel, len(models))
+		for i, m := range models {
+			batch[i] = product.ProductModel(m)
+		}
+		return callback(batch)
+	})
+}

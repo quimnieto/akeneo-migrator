@@ -53,6 +53,14 @@ func (m *MockSourceRepository) FindModelsUpdatedSince(ctx context.Context, updat
 	return []product.ProductModel{}, nil
 }
 
+func (m *MockSourceRepository) StreamProductsUpdatedSince(ctx context.Context, updatedSince string, batchSize int, callback func([]product.Product) error) error {
+	return nil
+}
+
+func (m *MockSourceRepository) StreamModelsUpdatedSince(ctx context.Context, updatedSince string, batchSize int, callback func([]product.ProductModel) error) error {
+	return nil
+}
+
 // MockDestRepository is a mock of the destination repository for testing
 type MockDestRepository struct {
 	findByIdentifierFunc     func(ctx context.Context, identifier string) (product.Product, error)
