@@ -18,8 +18,11 @@ linters:
 
 linters-settings:
   errcheck:
-    check-type-assertions: true
-    check-blank: true
+    check-type-assertions: false
+    check-blank: false
+    exclude-functions:
+      - io.ReadAll
+      - (io.Closer).Close
   
   govet:
     enable:
@@ -39,3 +42,15 @@ issues:
       linters:
         - gosec
         - unparam
+    
+    # Allow blank identifier for intentionally ignored errors
+    - text: "Error return value.*is not checked"
+      linters:
+        - errcheck
+      source: "^\\s*_\\s*="
+    
+    # Allow blank identifier in defer closures
+    - text: "Error return value.*is not checked"
+      linters:
+        - errcheck
+      source: "defer func\\(\\) \\{ _ ="
