@@ -7,6 +7,7 @@ import (
 	"os"
 
 	attribute_syncing "akeneo-migrator/internal/attribute/syncing"
+	category_syncing "akeneo-migrator/internal/category/syncing"
 	"akeneo-migrator/internal/platform/client/akeneo"
 	"akeneo-migrator/internal/platform/config"
 	akeneo_storage "akeneo-migrator/internal/platform/storage/akeneo"
@@ -82,6 +83,9 @@ func Run() error {
 	referenceEntitySyncer := syncing.NewService(sourceRepository, destRepository)
 	productSyncer := product_syncing.NewService(sourceProductRepo, destProductRepo)
 	attributeSyncer := attribute_syncing.NewService(sourceAttributeRepo, destAttributeRepo)
+	sourceCategoryRepo := akeneo_storage.NewSourceCategoryRepository(sourceClient)
+	destCategoryRepo := akeneo_storage.NewDestCategoryRepository(destClient)
+	categorySyncer := category_syncing.NewService(sourceCategoryRepo, destCategoryRepo)
 
 	// 7. Create command bus with middlewares
 	commandBus := inmemory.NewCommandBus(
@@ -104,6 +108,10 @@ func Run() error {
 	commandBus.Register(
 		attribute_syncing.SyncAttributeCommandType,
 		attribute_syncing.NewCommandHandler(attributeSyncer),
+	)
+	commandBus.Register(
+		category_syncing.SyncCategoryCommandType,
+		category_syncing.NewCommandHandler(categorySyncer),
 	)
 
 	// 9. Create application with dependencies
@@ -130,6 +138,9 @@ products, categories and other elements.`,
 
 	syncAttributeCmd := createSyncAttributeCommand(app)
 	rootCmd.AddCommand(syncAttributeCmd)
+
+	syncCategoryCmd := createSyncCategoryCommand(app)
+	rootCmd.AddCommand(syncCategoryCmd)
 
 	// 12. Execute root command
 	return rootCmd.Execute()
@@ -367,6 +378,67 @@ func runSyncAttributeCommand(app *Application) func(cmd *cobra.Command, args []s
 		// Show result
 		if result.Success {
 			fmt.Printf("\n✅ Attribute '%s' synchronized successfully!\n", result.Code)
+		} else {
+			fmt.Printf("❌ Failed to synchronize '%s': %s\n", result.Code, result.Error)
+		}
+	}
+}
+
+// createSyncCategoryCommand creates the sync-category command
+func createSyncCategoryCommand(app *Application) *cobra.Command {
+	cmd := &cobra.Command{
+		Use:   "sync-category [code]",
+		Short: "Synchronizes a category by its code",
+		Long: `Synchronizes a single category from the source Akeneo to the destination Akeneo.
+
+Requires the category code as an argument.
+
+Example:
+  akeneo-migrator sync-category master
+  akeneo-migrator sync-category clothing --debug`,
+		Args: cobra.ExactArgs(1),
+		Run:  runSyncCategoryCommand(app),
+	}
+
+	// Add debug flag
+	cmd.Flags().Bool("debug", false, "Enable debug mode to see category contents")
+
+	return cmd
+}
+
+// runSyncCategoryCommand executes the category synchronization logic
+func runSyncCategoryCommand(app *Application) func(cmd *cobra.Command, args []string) {
+	return func(cmd *cobra.Command, args []string) {
+		code := args[0]
+		ctx := context.Background()
+
+		// Get debug flag
+		debug, _ := cmd.Flags().GetBool("debug") //nolint:errcheck // flag is optional
+
+		fmt.Printf("🚀 Starting synchronization for category: %s\n", code)
+		if debug {
+			fmt.Println("🔍 Debug mode enabled")
+		}
+
+		// Execute synchronization using command bus
+		response, err := app.CommandBus.Dispatch(ctx, category_syncing.SyncCategoryCommand{
+			Code:  code,
+			Debug: debug,
+		})
+		if err != nil {
+			log.Printf("❌ Synchronization error: %v\n", err)
+			return
+		}
+
+		result, ok := response.Data.(*category_syncing.SyncResult)
+		if !ok {
+			log.Printf("❌ Invalid response type\n")
+			return
+		}
+
+		// Show result
+		if result.Success {
+			fmt.Printf("\n✅ Category '%s' synchronized successfully!\n", result.Code)
 		} else {
 			fmt.Printf("❌ Failed to synchronize '%s': %s\n", result.Code, result.Error)
 		}

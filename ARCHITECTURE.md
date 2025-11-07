@@ -1,245 +1,405 @@
-# Project Architecture
+# Architecture Documentation
 
-## Pattern: Hexagonal Architecture (Ports & Adapters)
+## Overview
 
-This project implements a hexagonal architecture that clearly separates business logic from implementation details.
+This project implements a **Hexagonal Architecture** (Ports & Adapters) with a **Command Bus** pattern for executing synchronization operations between Akeneo PIM instances.
 
-## Layers
+## Directory Structure
 
-### 1. Domain (`internal/reference_entity/`)
+```
+akeneo-migrator/
+├── cmd/
+│   └── app/
+│       ├── main.go                    # Application entry point
+│       └── bootstrap/
+│           └── bootstrap.go           # Dependency injection & CLI setup
+│
+├── internal/
+│   ├── attribute/                     # Attribute domain
+│   │   ├── repository.go              # Domain interfaces
+│   │   └── syncing/
+│   │       ├── service.go             # Business logic
+│   │       ├── command.go             # Command definition
+│   │       ├── command_handler.go     # Command handler
+│   │       └── service_test.go        # Unit tests
+│   │
+│   ├── product/                       # Product domain
+│   │   ├── repository.go
+│   │   └── syncing/
+│   │       ├── service.go
+│   │       ├── command.go
+│   │       ├── command_handler.go
+│   │       └── service_test.go
+│   │
+│   ├── reference_entity/              # Reference Entity domain
+│   │   ├── repository.go
+│   │   └── syncing/
+│   │       ├── service.go
+│   │       ├── command.go
+│   │       ├── command_handler.go
+│   │       └── service_test.go
+│   │
+│   └── platform/                      # Infrastructure layer
+│       ├── client/
+│       │   └── akeneo/
+│       │       └── client.go          # HTTP client for Akeneo API
+│       ├── storage/
+│       │   └── akeneo/
+│       │       ├── attribute_repository.go
+│       │       ├── product_repository.go
+│       │       └── reference_entity_repository.go
+│       └── config/
+│           └── config.go              # Configuration management
+│
+├── kit/                               # Shared kernel / reusable components
+│   ├── bus/
+│   │   ├── bus.go                     # Bus interfaces
+│   │   └── in_memory/
+│   │       ├── command_bus.go         # In-memory implementation
+│   │       ├── command_bus_test.go
+│   │       └── middleware/
+│   │           └── logging.go         # Logging middleware
+│   └── config/
+│       └── static/
+│           ├── config.go              # Config interfaces
+│           └── viper/
+│               └── viper.go           # Viper implementation
+│
+├── configs/                           # Configuration files
+│   └── akeneo-migrator/
+│       └── settings.local.json
+│
+├── Makefile                           # Build automation
+├── go.mod                             # Go dependencies
+├── .golangci.yml                      # Linter configuration
+└── .github/
+    └── workflows/
+        └── ci.yml                     # CI/CD pipeline
+```
 
-Contains pure business logic and interfaces (ports).
+## Architectural Layers
 
+### 1. Domain Layer (`internal/[module]/`)
+
+Contains the core business logic and domain interfaces (ports).
+
+**Responsibilities:**
+- Define domain entities and value objects
+- Define repository interfaces (ports)
+- Pure business logic, no infrastructure dependencies
+
+**Example:**
 ```go
-// repository.go - Defines separate contracts
+// internal/attribute/repository.go
+package attribute
 
-// SourceRepository - Read-only for source
+type Attribute map[string]interface{}
+
 type SourceRepository interface {
-    FindAll(ctx context.Context, entityName string) ([]Record, error)
+    FindByCode(ctx context.Context, code string) (Attribute, error)
 }
 
-// DestRepository - Read and write for destination
 type DestRepository interface {
-    FindAll(ctx context.Context, entityName string) ([]Record, error)
-    Save(ctx context.Context, entityName string, code string, record Record) error
+    Save(ctx context.Context, code string, attribute Attribute) error
 }
 ```
 
-**Features:**
-- ✅ No external dependencies
-- ✅ Easy to test
-- ✅ Independent of infrastructure
-- ✅ **ISP (Interface Segregation Principle)**: Separate interfaces by responsibility
+### 2. Application Layer (`internal/[module]/syncing/`)
 
-### 2. Services (`internal/reference_entity/syncing/`)
+Contains use cases and application-specific business rules.
 
-Implements application use cases.
+**Components:**
+- **Services**: Orchestrate domain logic
+- **Commands**: Define intentions (what to do)
+- **Handlers**: Execute commands (how to do it)
 
+**Example:**
 ```go
-// service.go - Synchronization logic
+// Service
 type Service struct {
-    sourceRepo SourceRepository  // Read-only
-    destRepo   DestRepository    // Read and write
+    sourceRepo SourceRepository
+    destRepo   DestRepository
 }
 
-func (s *Service) Sync(ctx context.Context, entityName string) (*SyncResult, error)
-```
+// Command
+type SyncAttributeCommand struct {
+    Code  string
+    Debug bool
+}
 
-**Features:**
-- ✅ Orchestrates domain operations
-- ✅ Doesn't know implementation details
-- ✅ Uses domain interfaces
-- ✅ **Clear separation**: Source only reads, Dest reads and writes
-
-### 3. Infrastructure (`internal/platform/`)
-
-Implements concrete adapters.
-
-#### HTTP Client (`internal/platform/client/akeneo/`)
-```go
-// client.go - HTTP client for Akeneo API
-type Client struct {
-    config      ClientConfig
-    httpClient  *http.Client
-    accessToken string
+// Handler
+type CommandHandler struct {
+    service *Service
 }
 ```
 
-#### Repository (`internal/platform/storage/akeneo/`)
-```go
-// reference_entity_repository.go - Separate implementations
+### 3. Infrastructure Layer (`internal/platform/`)
 
-// SourceReferenceEntityRepository - Read-only
-type SourceReferenceEntityRepository struct {
+Contains concrete implementations of domain interfaces (adapters).
+
+**Components:**
+- **Client**: HTTP communication with external APIs
+- **Storage**: Repository implementations
+- **Config**: Configuration management
+
+**Example:**
+```go
+// internal/platform/storage/akeneo/attribute_repository.go
+type SourceAttributeRepository struct {
     client *akeneo.Client
 }
 
-func (r *SourceReferenceEntityRepository) FindAll(ctx context.Context, entityName string) ([]Record, error)
-
-// DestReferenceEntityRepository - Read and write
-type DestReferenceEntityRepository struct {
-    client *akeneo.Client
-}
-
-func (r *DestReferenceEntityRepository) FindAll(ctx context.Context, entityName string) ([]Record, error)
-func (r *DestReferenceEntityRepository) Save(ctx context.Context, entityName string, code string, record Record) error
-```
-
-**Features:**
-- ✅ Implements domain interfaces
-- ✅ Handles technical details (HTTP, JSON, authentication)
-- ✅ Can be replaced without affecting business logic
-- ✅ **Separation of concerns**: Source cannot modify data
-
-### 4. Bootstrap (`cmd/app/bootstrap/`)
-
-Dependency injection and configuration.
-
-```go
-// bootstrap.go
-func Run() error {
-    // 1. Load configuration
-    // 2. Create clients
-    // 3. Create repositories
-    // 4. Create services
-    // 5. Configure CLI commands
-    // 6. Execute
+func (r *SourceAttributeRepository) FindByCode(ctx context.Context, code string) (attribute.Attribute, error) {
+    return r.client.GetAttribute(code)
 }
 ```
 
-**Features:**
-- ✅ Single point of configuration
-- ✅ Manual dependency injection
-- ✅ Easy to understand and maintain
+### 4. Shared Kernel (`kit/`)
+
+Reusable components shared across the application.
+
+**Components:**
+- **Bus**: Command bus implementation
+- **Config**: Configuration loaders
+- **Middleware**: Cross-cutting concerns
+
+### 5. Bootstrap (`cmd/app/bootstrap/`)
+
+Wires everything together through dependency injection.
+
+**Responsibilities:**
+- Create instances of all components
+- Register command handlers in the bus
+- Set up CLI commands
+- Configure middleware
 
 ## Data Flow
 
+### Command Execution Flow
+
 ```
 ┌─────────────────────────────────────────────────────────────┐
-│                         CLI Command                          │
-│                    (cmd/app/bootstrap)                       │
+│                         CLI Layer                            │
+│  (User runs: ./akeneo-migrator sync-attribute sku)          │
 └────────────────────────┬────────────────────────────────────┘
                          │
                          ▼
 ┌─────────────────────────────────────────────────────────────┐
-│                    Syncing Service                           │
-│            (internal/reference_entity/syncing)               │
-│                                                              │
-│  - Orchestrates synchronization                             │
-│  - Handles errors and results                               │
-└──────────────┬──────────────────────────┬───────────────────┘
-               │                          │
-               ▼                          ▼
-┌──────────────────────────┐  ┌──────────────────────────┐
-│   Source Repository      │  │    Dest Repository       │
-│  (interface)             │  │   (interface)            │
-└──────────┬───────────────┘  └──────────┬───────────────┘
-           │                              │
-           ▼                              ▼
-┌──────────────────────────┐  ┌──────────────────────────┐
-│ Akeneo Repository Impl   │  │ Akeneo Repository Impl   │
-│ (platform/storage)       │  │ (platform/storage)       │
-└──────────┬───────────────┘  └──────────┬───────────────┘
-           │                              │
-           ▼                              ▼
-┌──────────────────────────┐  ┌──────────────────────────┐
-│   Akeneo HTTP Client     │  │   Akeneo HTTP Client     │
-│   (platform/client)      │  │   (platform/client)      │
-└──────────┬───────────────┘  └──────────┬───────────────┘
-           │                              │
-           ▼                              ▼
-     Source Akeneo API            Dest Akeneo API
+│                    Bootstrap Layer                           │
+│  • Parse CLI arguments                                       │
+│  • Create SyncAttributeCommand                               │
+└────────────────────────┬────────────────────────────────────┘
+                         │
+                         ▼
+┌─────────────────────────────────────────────────────────────┐
+│                     Command Bus                              │
+│  • Dispatch(ctx, SyncAttributeCommand)                       │
+└────────────────────────┬────────────────────────────────────┘
+                         │
+                         ▼
+┌─────────────────────────────────────────────────────────────┐
+│                   Middleware Chain                           │
+│  • Logging (before)                                          │
+│  • [Future: Metrics, Tracing, Retry, etc.]                  │
+└────────────────────────┬────────────────────────────────────┘
+                         │
+                         ▼
+┌─────────────────────────────────────────────────────────────┐
+│                   Command Handler                            │
+│  • Extract command data                                      │
+│  • Call service method                                       │
+└────────────────────────┬────────────────────────────────────┘
+                         │
+                         ▼
+┌─────────────────────────────────────────────────────────────┐
+│                      Service                                 │
+│  • Business logic                                            │
+│  • Orchestrate repositories                                  │
+└────────────────────────┬────────────────────────────────────┘
+                         │
+                         ▼
+┌─────────────────────────────────────────────────────────────┐
+│                   Repositories                               │
+│  • SourceRepository.FindByCode()                             │
+│  • DestRepository.Save()                                     │
+└────────────────────────┬────────────────────────────────────┘
+                         │
+                         ▼
+┌─────────────────────────────────────────────────────────────┐
+│                   HTTP Client                                │
+│  • GET /api/rest/v1/attributes/{code}                        │
+│  • PATCH /api/rest/v1/attributes/{code}                      │
+└────────────────────────┬────────────────────────────────────┘
+                         │
+                         ▼
+┌─────────────────────────────────────────────────────────────┐
+│                   Akeneo API                                 │
+└─────────────────────────────────────────────────────────────┘
 ```
 
-## Advantages of this Architecture
+## Design Patterns
 
-### 1. Testability
-```go
-// Easy to create mocks for testing
-type MockSourceRepository struct {
-    findAllFunc func(ctx context.Context, entityName string) ([]Record, error)
-}
-```
+### 1. Hexagonal Architecture (Ports & Adapters)
 
-### 2. Decoupling
-- Business logic doesn't depend on Akeneo
-- You can change PIM without touching the domain
-- Services only know interfaces
+**Benefits:**
+- Business logic independent of external systems
+- Easy to test with mocks
+- Can swap implementations (e.g., different PIM systems)
 
-### 3. Extensibility
-```go
-// Adding a new adapter is simple
-type OtherPIMRepository struct {
-    client *otherpim.Client
-}
+**Implementation:**
+- **Ports**: Interfaces in domain layer (`repository.go`)
+- **Adapters**: Implementations in infrastructure layer (`storage/`, `client/`)
 
-func (r *OtherPIMRepository) FindAll(...) ([]Record, error) {
-    // Implementation for another PIM
-}
-```
+### 2. Command Bus Pattern
 
-### 4. Maintainability
-- Clear separation of responsibilities
-- Each layer has a specific purpose
-- Easy to understand and modify
+**Benefits:**
+- Decouples command creation from execution
+- Centralized middleware for cross-cutting concerns
+- Easy to add new commands without changing existing code
 
-## Testing
+**Implementation:**
+- Commands: Simple data structures
+- Handlers: Execute business logic
+- Bus: Routes commands to handlers
+- Middleware: Wraps execution
+
+### 3. Repository Pattern
+
+**Benefits:**
+- Abstracts data access
+- Separates read (Source) from write (Dest) operations
+- Easy to mock for testing
+
+**Implementation:**
+- `SourceRepository`: Read-only operations
+- `DestRepository`: Write operations
+
+### 4. Dependency Injection
+
+**Benefits:**
+- Loose coupling
+- Easy to test
+- Flexible configuration
+
+**Implementation:**
+- All dependencies injected in `bootstrap.go`
+- No global state or singletons
+
+## Testing Strategy
 
 ### Unit Tests
-```bash
-# Test services with mocks
-go test ./internal/reference_entity/syncing/...
+
+Test individual components in isolation:
+
+```go
+// Service tests with mock repositories
+func TestSync_Success(t *testing.T) {
+    mockSource := &MockSourceRepo{}
+    mockDest := &MockDestRepo{}
+    service := NewService(mockSource, mockDest)
+    // ...
+}
 ```
 
 ### Integration Tests
+
+Test component interactions:
+
+```go
+// Command bus with real handlers
+func TestCommandBus_Integration(t *testing.T) {
+    bus := inmemory.NewCommandBus()
+    handler := NewCommandHandler(service)
+    bus.Register(SyncCommandType, handler)
+    // ...
+}
+```
+
+### End-to-End Tests
+
+Test complete flows (manual or automated):
+
 ```bash
-# Test with real Akeneo (requires configuration)
-go test ./internal/platform/storage/akeneo/... -tags=integration
+# Test actual sync with test instances
+./akeneo-migrator sync-attribute test_attribute
 ```
 
-## Adding New Features
+## Configuration Management
 
-### 1. Define in Domain
-```go
-// internal/reference_entity/repository.go
-type DestRepository interface {
-    FindAll(ctx context.Context, entityName string) ([]Record, error)
-    Save(ctx context.Context, entityName string, code string, record Record) error
-    Delete(ctx context.Context, entityName string, code string) error // New
-}
+### Configuration Layers
+
+1. **JSON Files** (`configs/akeneo-migrator/settings.local.json`)
+2. **Environment Variables** (override JSON)
+3. **Command-line Flags** (override environment)
+
+### Configuration Flow
+
+```
+JSON File → Viper → Config Struct → Services
 ```
 
-### 2. Create Service
-```go
-// internal/reference_entity/deleting/service.go
-type Service struct {
-    repo DestRepository
-}
+## Error Handling
 
-func (s *Service) Delete(ctx context.Context, entityName, code string) error {
-    return s.repo.Delete(ctx, entityName, code)
-}
+### Error Propagation
+
+Errors flow up through layers:
+
+```
+API Error → Client → Repository → Service → Handler → Bus → CLI
 ```
 
-### 3. Implement in Infrastructure
-```go
-// internal/platform/storage/akeneo/reference_entity_repository.go
-func (r *DestReferenceEntityRepository) Delete(ctx context.Context, entityName string, code string) error {
-    return r.client.DeleteReferenceEntityRecord(entityName, code)
-}
-```
+### Error Types
 
-### 4. Register in Bootstrap
-```go
-// cmd/app/bootstrap/bootstrap.go
-deleteService := deleting.NewService(destRepository)
-deleteCmd := createDeleteCommand(deleteService)
-rootCmd.AddCommand(deleteCmd)
-```
+1. **Domain Errors**: Business rule violations
+2. **Infrastructure Errors**: Network, API, database errors
+3. **Validation Errors**: Invalid input data
 
-## Applied Principles
+## Security Considerations
 
-- **SOLID**: Each component has a single responsibility
-- **DIP**: We depend on abstractions, not implementations
-- **ISP**: Small and specific interfaces
-- **OCP**: Open for extension, closed for modification
+1. **Credentials**: Stored in config files (not in code)
+2. **OAuth2**: Token-based authentication with refresh
+3. **HTTPS**: All API communication encrypted
+4. **Secrets**: Should use environment variables in production
+
+## Performance Considerations
+
+1. **Pagination**: Large datasets fetched in chunks
+2. **Connection Pooling**: HTTP client reuses connections
+3. **Token Caching**: OAuth tokens cached until expiry
+4. **Batch Operations**: Multiple items synced in single session
+
+## Future Enhancements
+
+### Planned Features
+
+1. **Async Processing**: Queue-based command execution
+2. **Retry Logic**: Automatic retry with exponential backoff
+3. **Metrics**: Prometheus metrics for monitoring
+4. **Distributed Tracing**: OpenTelemetry integration
+5. **Event Sourcing**: Audit log of all operations
+6. **Webhooks**: Real-time sync triggers
+7. **Conflict Resolution**: Handle concurrent modifications
+
+### Scalability
+
+1. **Horizontal Scaling**: Multiple workers processing commands
+2. **Message Queue**: RabbitMQ or Kafka for command distribution
+3. **Caching**: Redis for frequently accessed data
+4. **Rate Limiting**: Respect API limits
+
+## Contributing
+
+When adding new features:
+
+1. Follow the existing directory structure
+2. Keep domain logic pure (no infrastructure dependencies)
+3. Use command bus for all operations
+4. Write tests for all layers
+5. Update documentation
+
+## References
+
+- [Hexagonal Architecture](https://alistair.cockburn.us/hexagonal-architecture/)
+- [Command Bus Pattern](https://matthiasnoback.nl/2015/01/a-wave-of-command-buses/)
+- [Repository Pattern](https://martinfowler.com/eaaCatalog/repository.html)
+- [Dependency Injection](https://martinfowler.com/articles/injection.html)
