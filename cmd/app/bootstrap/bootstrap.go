@@ -6,15 +6,15 @@ import (
 	"log"
 	"os"
 
-	"akeneo-migrator/internal/attribute"
 	attribute_syncing "akeneo-migrator/internal/attribute/syncing"
 	"akeneo-migrator/internal/config"
 	"akeneo-migrator/internal/platform/client/akeneo"
 	akeneo_storage "akeneo-migrator/internal/platform/storage/akeneo"
-	"akeneo-migrator/internal/product"
 	product_syncing "akeneo-migrator/internal/product/syncing"
-	"akeneo-migrator/internal/reference_entity"
 	"akeneo-migrator/internal/reference_entity/syncing"
+	"akeneo-migrator/kit/bus"
+	"akeneo-migrator/kit/bus/in_memory"
+	"akeneo-migrator/kit/bus/in_memory/middleware"
 	"akeneo-migrator/kit/config/static/viper"
 
 	"github.com/spf13/cobra"
@@ -24,18 +24,8 @@ const CONTEXT = "akeneo-migrator"
 
 // Application contains all application dependencies
 type Application struct {
-	Config                *config.Config
-	SourceClient          *akeneo.Client
-	DestClient            *akeneo.Client
-	SourceRepository      reference_entity.SourceRepository
-	DestRepository        reference_entity.DestRepository
-	ReferenceEntitySyncer *syncing.Service
-	SourceProductRepo     product.SourceRepository
-	DestProductRepo       product.DestRepository
-	ProductSyncer         *product_syncing.Service
-	SourceAttributeRepo   attribute.SourceRepository
-	DestAttributeRepo     attribute.DestRepository
-	AttributeSyncer       *attribute_syncing.Service
+	Config     *config.Config
+	CommandBus bus.Bus
 }
 
 // Run initializes the application and executes CLI commands
@@ -93,23 +83,36 @@ func Run() error {
 	productSyncer := product_syncing.NewService(sourceProductRepo, destProductRepo)
 	attributeSyncer := attribute_syncing.NewService(sourceAttributeRepo, destAttributeRepo)
 
-	// 7. Create application with dependencies
+	// 7. Create command bus with middlewares
+	commandBus := inmemory.NewCommandBus(
+		middleware.Logging(),
+	)
+
+	// 8. Register command handlers
+	commandBus.Register(
+		syncing.SyncReferenceEntityCommandType,
+		syncing.NewCommandHandler(referenceEntitySyncer),
+	)
+	commandBus.Register(
+		product_syncing.SyncProductCommandType,
+		product_syncing.NewCommandHandler(productSyncer),
+	)
+	commandBus.Register(
+		product_syncing.SyncProductHierarchyCommandType,
+		product_syncing.NewCommandHandler(productSyncer),
+	)
+	commandBus.Register(
+		attribute_syncing.SyncAttributeCommandType,
+		attribute_syncing.NewCommandHandler(attributeSyncer),
+	)
+
+	// 9. Create application with dependencies
 	app := &Application{
-		Config:                cfg,
-		SourceClient:          sourceClient,
-		DestClient:            destClient,
-		SourceRepository:      sourceRepository,
-		DestRepository:        destRepository,
-		ReferenceEntitySyncer: referenceEntitySyncer,
-		SourceProductRepo:     sourceProductRepo,
-		DestProductRepo:       destProductRepo,
-		ProductSyncer:         productSyncer,
-		SourceAttributeRepo:   sourceAttributeRepo,
-		DestAttributeRepo:     destAttributeRepo,
-		AttributeSyncer:       attributeSyncer,
+		Config:     cfg,
+		CommandBus: commandBus,
 	}
 
-	// 8. Create root command
+	// 10. Create root command
 	rootCmd := &cobra.Command{
 		Use:   "akeneo-migrator",
 		Short: "CLI tool to migrate data between Akeneo instances",
@@ -118,7 +121,7 @@ between different Akeneo PIM instances, including Reference Entities,
 products, categories and other elements.`,
 	}
 
-	// 9. Add commands
+	// 11. Add commands
 	syncCmd := createSyncCommand(app)
 	rootCmd.AddCommand(syncCmd)
 
@@ -128,7 +131,7 @@ products, categories and other elements.`,
 	syncAttributeCmd := createSyncAttributeCommand(app)
 	rootCmd.AddCommand(syncAttributeCmd)
 
-	// 10. Execute root command
+	// 12. Execute root command
 	return rootCmd.Execute()
 }
 
@@ -167,15 +170,24 @@ func runSyncCommand(app *Application) func(cmd *cobra.Command, args []string) {
 			fmt.Println("🔍 Debug mode enabled")
 		}
 
-		// Execute synchronization using the service
+		// Execute synchronization using command bus
 		fmt.Printf("📋 Synchronizing Reference Entity '%s'...\n", entityName)
 		fmt.Println("   1️⃣  Syncing entity definition...")
 		fmt.Println("   2️⃣  Syncing attributes...")
 		fmt.Println("   3️⃣  Syncing records...")
 
-		result, err := app.ReferenceEntitySyncer.Sync(ctx, entityName)
+		response, err := app.CommandBus.Dispatch(ctx, syncing.SyncReferenceEntityCommand{
+			EntityName: entityName,
+			Debug:      debug,
+		})
 		if err != nil {
 			log.Printf("❌ Synchronization error: %v\n", err)
+			return
+		}
+
+		result, ok := response.Data.(*syncing.SyncResult)
+		if !ok {
+			log.Printf("❌ Invalid response type\n")
 			return
 		}
 
@@ -257,21 +269,33 @@ func runSyncProductCommand(app *Application) func(cmd *cobra.Command, args []str
 			fmt.Println("🔍 Debug mode enabled")
 		}
 
-		var result *product_syncing.SyncResult
+		var response bus.Response
 		var err error
 
 		if single {
 			// Sync only the single product
 			fmt.Printf("📥 Fetching product '%s' from source...\n", identifier)
-			result, err = app.ProductSyncer.Sync(ctx, identifier)
+			response, err = app.CommandBus.Dispatch(ctx, product_syncing.SyncProductCommand{
+				Identifier: identifier,
+				Debug:      debug,
+			})
 		} else {
 			// Sync entire hierarchy
 			fmt.Printf("📥 Fetching product hierarchy for '%s' from source...\n", identifier)
-			result, err = app.ProductSyncer.SyncHierarchy(ctx, identifier)
+			response, err = app.CommandBus.Dispatch(ctx, product_syncing.SyncProductHierarchyCommand{
+				Identifier: identifier,
+				Debug:      debug,
+			})
 		}
 
 		if err != nil {
 			log.Printf("❌ Synchronization error: %v\n", err)
+			return
+		}
+
+		result, ok := response.Data.(*product_syncing.SyncResult)
+		if !ok {
+			log.Printf("❌ Invalid response type\n")
 			return
 		}
 
@@ -324,10 +348,19 @@ func runSyncAttributeCommand(app *Application) func(cmd *cobra.Command, args []s
 			fmt.Println("🔍 Debug mode enabled")
 		}
 
-		// Execute synchronization using the service
-		result, err := app.AttributeSyncer.Sync(ctx, code)
+		// Execute synchronization using command bus
+		response, err := app.CommandBus.Dispatch(ctx, attribute_syncing.SyncAttributeCommand{
+			Code:  code,
+			Debug: debug,
+		})
 		if err != nil {
 			log.Printf("❌ Synchronization error: %v\n", err)
+			return
+		}
+
+		result, ok := response.Data.(*attribute_syncing.SyncResult)
+		if !ok {
+			log.Printf("❌ Invalid response type\n")
 			return
 		}
 

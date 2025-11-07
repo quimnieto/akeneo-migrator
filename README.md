@@ -160,31 +160,52 @@ akeneo-migrator/
 
 ## Architecture
 
-The project follows the **Hexagonal Architecture** pattern (Ports & Adapters):
+The project follows the **Hexagonal Architecture** pattern (Ports & Adapters) with a **Command Bus** for command execution:
 
-- **Domain** (`internal/reference_entity/`): Contains business logic and interfaces (ports)
-- **Services** (`internal/reference_entity/syncing/`): Use cases and application logic
+### Layers
+
+- **Domain** (`internal/[module]/`): Contains business logic and interfaces (ports)
+- **Application** (`internal/[module]/syncing/`): Use cases and application logic
+  - Services: Business logic implementation
+  - Commands: Command definitions
+  - Handlers: Command execution logic
 - **Infrastructure** (`internal/platform/`): Concrete implementations (adapters)
   - `client/akeneo/`: HTTP client for Akeneo API
   - `storage/akeneo/`: Repository implementation using the client
+- **Command Bus** (`kit/bus/`): Command dispatching and middleware
 - **Bootstrap** (`cmd/app/bootstrap/`): Dependency injection and configuration
 
-### Architecture Advantages:
+### Command Bus Flow
 
-- ✅ **Testable**: You can easily mock repositories
+```
+CLI → Command → Bus → Middleware → Handler → Service → Repository
+```
+
+### Architecture Advantages
+
+- ✅ **Testable**: Easy to mock repositories and command bus
 - ✅ **Decoupled**: Business logic doesn't depend on Akeneo directly
-- ✅ **Extensible**: Easy to add new implementations (e.g., another PIM)
+- ✅ **Extensible**: Easy to add new implementations and middleware
 - ✅ **Maintainable**: Clear separation of responsibilities
+- ✅ **Observable**: Centralized logging and metrics through middleware
+
+See [COMMAND_BUS.md](COMMAND_BUS.md) for detailed Command Bus documentation.
 
 ## Development
 
-To add new commands:
+### Adding New Sync Commands
 
-1. Define the interface in the domain (`internal/[domain]/repository.go`)
-2. Create the service with business logic (`internal/[domain]/[action]/service.go`)
-3. Implement the repository in `internal/platform/storage/`
-4. Register dependencies in bootstrap
-5. Create the command in bootstrap
+1. **Define domain interfaces** (`internal/[module]/repository.go`)
+2. **Create service** with business logic (`internal/[module]/syncing/service.go`)
+3. **Define command** (`internal/[module]/syncing/command.go`)
+4. **Create handler** (`internal/[module]/syncing/command_handler.go`)
+5. **Implement repository** in `internal/platform/storage/`
+6. **Register in bootstrap**:
+   - Create service
+   - Register command handler in command bus
+   - Create CLI command
+
+See [COMMAND_BUS.md](COMMAND_BUS.md) for detailed instructions.
 
 ## Testing
 
