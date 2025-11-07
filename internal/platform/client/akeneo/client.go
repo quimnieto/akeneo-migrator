@@ -465,26 +465,26 @@ func (c *Client) PatchReferenceEntityAttribute(entityCode, attributeCode string,
 	var buf bytes.Buffer
 	encoder := json.NewEncoder(&buf)
 	encoder.SetEscapeHTML(false)
-	
+
 	if err := encoder.Encode(cleanAttribute); err != nil {
 		return err
 	}
-	
+
 	jsonData := buf.Bytes()
 
 	// Debug: print what we're sending
 	fmt.Printf("🔍 DEBUG - Sending attribute %s:\n%s\n", attributeCode, string(jsonData))
-	
+
 	// Additional debug: verify by unmarshalling back
 	var debugCheck map[string]interface{}
 	json.Unmarshal(jsonData, &debugCheck)
 	fmt.Printf("🔍 DEBUG - Labels type in JSON: %T, value: %v\n", debugCheck["labels"], debugCheck["labels"])
-	
+
 	// Extra debug: check raw bytes of labels field
 	labelsJSON, _ := json.Marshal(debugCheck["labels"])
 	fmt.Printf("🔍 DEBUG - Labels as JSON bytes: %s\n", string(labelsJSON))
 
-	url := fmt.Sprintf("%s/api/rest/v1/reference-entities/%s/attributes/%s", 
+	url := fmt.Sprintf("%s/api/rest/v1/reference-entities/%s/attributes/%s",
 		c.config.Host, entityCode, attributeCode)
 
 	req, err := http.NewRequest("PATCH", url, bytes.NewReader(jsonData))
@@ -539,21 +539,21 @@ func (c *Client) cleanReferenceEntityAttribute(attribute ReferenceEntityAttribut
 
 	// Required fields that should always be included
 	requiredFields := map[string]bool{
-		"code":                          true,
-		"type":                          true,
-		"labels":                        true,
-		"value_per_locale":              true,
-		"value_per_channel":             true,
+		"code":                         true,
+		"type":                         true,
+		"labels":                       true,
+		"value_per_locale":             true,
+		"value_per_channel":            true,
 		"is_required_for_completeness": true,
 	}
 
 	// Type-specific fields
 	textFields := map[string]bool{
-		"is_textarea":          true,
-		"is_rich_text_editor":  true,
-		"validation_rule":      true,
-		"max_characters":       true,
-		"validation_regexp":    true,
+		"is_textarea":         true,
+		"is_rich_text_editor": true,
+		"validation_rule":     true,
+		"max_characters":      true,
+		"validation_regexp":   true,
 	}
 
 	numberFields := map[string]bool{

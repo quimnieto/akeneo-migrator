@@ -132,10 +132,10 @@ Example:
 		Args: cobra.ExactArgs(1),
 		Run:  runSyncCommand(app),
 	}
-	
+
 	// Add debug mode flag
 	cmd.Flags().Bool("debug", false, "Enable debug mode to see record contents")
-	
+
 	return cmd
 }
 
@@ -158,7 +158,7 @@ func runSyncCommand(app *Application) func(cmd *cobra.Command, args []string) {
 		fmt.Println("   1️⃣  Syncing entity definition...")
 		fmt.Println("   2️⃣  Syncing attributes...")
 		fmt.Println("   3️⃣  Syncing records...")
-		
+
 		result, err := app.ReferenceEntitySyncer.Sync(ctx, entityName)
 		if err != nil {
 			log.Printf("❌ Synchronization error: %v\n", err)

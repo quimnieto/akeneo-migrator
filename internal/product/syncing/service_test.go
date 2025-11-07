@@ -11,7 +11,10 @@ import (
 
 // MockSourceRepository is a mock of the source repository for testing
 type MockSourceRepository struct {
-	findByIdentifierFunc func(ctx context.Context, identifier string) (product.Product, error)
+	findByIdentifierFunc     func(ctx context.Context, identifier string) (product.Product, error)
+	findModelByCodeFunc      func(ctx context.Context, code string) (product.ProductModel, error)
+	findProductsByParentFunc func(ctx context.Context, parentCode string) ([]product.Product, error)
+	findModelsByParentFunc   func(ctx context.Context, parentCode string) ([]product.ProductModel, error)
 }
 
 func (m *MockSourceRepository) FindByIdentifier(ctx context.Context, identifier string) (product.Product, error) {
@@ -21,10 +24,35 @@ func (m *MockSourceRepository) FindByIdentifier(ctx context.Context, identifier 
 	return product.Product{"identifier": identifier}, nil
 }
 
+func (m *MockSourceRepository) FindModelByCode(ctx context.Context, code string) (product.ProductModel, error) {
+	if m.findModelByCodeFunc != nil {
+		return m.findModelByCodeFunc(ctx, code)
+	}
+	return product.ProductModel{"code": code}, nil
+}
+
+func (m *MockSourceRepository) FindProductsByParent(ctx context.Context, parentCode string) ([]product.Product, error) {
+	if m.findProductsByParentFunc != nil {
+		return m.findProductsByParentFunc(ctx, parentCode)
+	}
+	return []product.Product{}, nil
+}
+
+func (m *MockSourceRepository) FindModelsByParent(ctx context.Context, parentCode string) ([]product.ProductModel, error) {
+	if m.findModelsByParentFunc != nil {
+		return m.findModelsByParentFunc(ctx, parentCode)
+	}
+	return []product.ProductModel{}, nil
+}
+
 // MockDestRepository is a mock of the destination repository for testing
 type MockDestRepository struct {
-	findByIdentifierFunc func(ctx context.Context, identifier string) (product.Product, error)
-	saveFunc             func(ctx context.Context, identifier string, productData product.Product) error
+	findByIdentifierFunc     func(ctx context.Context, identifier string) (product.Product, error)
+	saveFunc                 func(ctx context.Context, identifier string, productData product.Product) error
+	findModelByCodeFunc      func(ctx context.Context, code string) (product.ProductModel, error)
+	saveModelFunc            func(ctx context.Context, code string, model product.ProductModel) error
+	findProductsByParentFunc func(ctx context.Context, parentCode string) ([]product.Product, error)
+	findModelsByParentFunc   func(ctx context.Context, parentCode string) ([]product.ProductModel, error)
 }
 
 func (m *MockDestRepository) FindByIdentifier(ctx context.Context, identifier string) (product.Product, error) {
@@ -39,6 +67,34 @@ func (m *MockDestRepository) Save(ctx context.Context, identifier string, produc
 		return m.saveFunc(ctx, identifier, productData)
 	}
 	return nil
+}
+
+func (m *MockDestRepository) FindModelByCode(ctx context.Context, code string) (product.ProductModel, error) {
+	if m.findModelByCodeFunc != nil {
+		return m.findModelByCodeFunc(ctx, code)
+	}
+	return product.ProductModel{"code": code}, nil
+}
+
+func (m *MockDestRepository) SaveModel(ctx context.Context, code string, model product.ProductModel) error {
+	if m.saveModelFunc != nil {
+		return m.saveModelFunc(ctx, code, model)
+	}
+	return nil
+}
+
+func (m *MockDestRepository) FindProductsByParent(ctx context.Context, parentCode string) ([]product.Product, error) {
+	if m.findProductsByParentFunc != nil {
+		return m.findProductsByParentFunc(ctx, parentCode)
+	}
+	return []product.Product{}, nil
+}
+
+func (m *MockDestRepository) FindModelsByParent(ctx context.Context, parentCode string) ([]product.ProductModel, error) {
+	if m.findModelsByParentFunc != nil {
+		return m.findModelsByParentFunc(ctx, parentCode)
+	}
+	return []product.ProductModel{}, nil
 }
 
 func TestSync_Success(t *testing.T) {

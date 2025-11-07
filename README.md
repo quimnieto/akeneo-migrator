@@ -111,6 +111,14 @@ Debug mode shows:
 - Detailed error messages
 - Validation issues
 
+### More Examples
+
+See [EXAMPLES.md](EXAMPLES.md) for more usage examples including:
+- Batch operations
+- Error handling
+- Advanced workflows
+- Scheduled syncs
+
 ## Project Structure
 
 ```
