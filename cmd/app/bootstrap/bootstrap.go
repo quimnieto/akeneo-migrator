@@ -6,6 +6,8 @@ import (
 	"log"
 	"os"
 
+	"akeneo-migrator/internal/attribute"
+	attribute_syncing "akeneo-migrator/internal/attribute/syncing"
 	"akeneo-migrator/internal/config"
 	"akeneo-migrator/internal/platform/client/akeneo"
 	akeneo_storage "akeneo-migrator/internal/platform/storage/akeneo"
@@ -31,6 +33,9 @@ type Application struct {
 	SourceProductRepo     product.SourceRepository
 	DestProductRepo       product.DestRepository
 	ProductSyncer         *product_syncing.Service
+	SourceAttributeRepo   attribute.SourceRepository
+	DestAttributeRepo     attribute.DestRepository
+	AttributeSyncer       *attribute_syncing.Service
 }
 
 // Run initializes the application and executes CLI commands
@@ -80,10 +85,13 @@ func Run() error {
 	destRepository := akeneo_storage.NewDestReferenceEntityRepository(destClient)
 	sourceProductRepo := akeneo_storage.NewSourceProductRepository(sourceClient)
 	destProductRepo := akeneo_storage.NewDestProductRepository(destClient)
+	sourceAttributeRepo := akeneo_storage.NewSourceAttributeRepository(sourceClient)
+	destAttributeRepo := akeneo_storage.NewDestAttributeRepository(destClient)
 
 	// 6. Create services
 	referenceEntitySyncer := syncing.NewService(sourceRepository, destRepository)
 	productSyncer := product_syncing.NewService(sourceProductRepo, destProductRepo)
+	attributeSyncer := attribute_syncing.NewService(sourceAttributeRepo, destAttributeRepo)
 
 	// 7. Create application with dependencies
 	app := &Application{
@@ -96,6 +104,9 @@ func Run() error {
 		SourceProductRepo:     sourceProductRepo,
 		DestProductRepo:       destProductRepo,
 		ProductSyncer:         productSyncer,
+		SourceAttributeRepo:   sourceAttributeRepo,
+		DestAttributeRepo:     destAttributeRepo,
+		AttributeSyncer:       attributeSyncer,
 	}
 
 	// 8. Create root command
@@ -113,6 +124,9 @@ products, categories and other elements.`,
 
 	syncProductCmd := createSyncProductCommand(app)
 	rootCmd.AddCommand(syncProductCmd)
+
+	syncAttributeCmd := createSyncAttributeCommand(app)
+	rootCmd.AddCommand(syncAttributeCmd)
 
 	// 10. Execute root command
 	return rootCmd.Execute()
@@ -270,6 +284,58 @@ func runSyncProductCommand(app *Application) func(cmd *cobra.Command, args []str
 			fmt.Printf("\n✅ Hierarchy '%s' synchronized successfully!\n", result.Identifier)
 		} else {
 			fmt.Printf("❌ Failed to synchronize '%s': %s\n", result.Identifier, result.Error)
+		}
+	}
+}
+
+// createSyncAttributeCommand creates the sync-attribute command
+func createSyncAttributeCommand(app *Application) *cobra.Command {
+	cmd := &cobra.Command{
+		Use:   "sync-attribute [code]",
+		Short: "Synchronizes an attribute by its code",
+		Long: `Synchronizes a single attribute from the source Akeneo to the destination Akeneo.
+
+Requires the attribute code as an argument.
+
+Example:
+  akeneo-migrator sync-attribute sku
+  akeneo-migrator sync-attribute description --debug`,
+		Args: cobra.ExactArgs(1),
+		Run:  runSyncAttributeCommand(app),
+	}
+
+	// Add debug flag
+	cmd.Flags().Bool("debug", false, "Enable debug mode to see attribute contents")
+
+	return cmd
+}
+
+// runSyncAttributeCommand executes the attribute synchronization logic
+func runSyncAttributeCommand(app *Application) func(cmd *cobra.Command, args []string) {
+	return func(cmd *cobra.Command, args []string) {
+		code := args[0]
+		ctx := context.Background()
+
+		// Get debug flag
+		debug, _ := cmd.Flags().GetBool("debug") //nolint:errcheck // flag is optional
+
+		fmt.Printf("🚀 Starting synchronization for attribute: %s\n", code)
+		if debug {
+			fmt.Println("🔍 Debug mode enabled")
+		}
+
+		// Execute synchronization using the service
+		result, err := app.AttributeSyncer.Sync(ctx, code)
+		if err != nil {
+			log.Printf("❌ Synchronization error: %v\n", err)
+			return
+		}
+
+		// Show result
+		if result.Success {
+			fmt.Printf("\n✅ Attribute '%s' synchronized successfully!\n", result.Code)
+		} else {
+			fmt.Printf("❌ Failed to synchronize '%s': %s\n", result.Code, result.Error)
 		}
 	}
 }

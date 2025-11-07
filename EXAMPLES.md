@@ -361,3 +361,84 @@ If you hit API rate limits:
 # Add to crontab for daily sync at 2 AM
 0 2 * * * cd /path/to/akeneo-migrator && ./bin/akeneo-migrator sync brands >> /var/log/akeneo-sync.log 2>&1
 ```
+
+## Attribute Synchronization
+
+### Sync Single Attribute
+
+```bash
+# Sync SKU attribute
+./bin/akeneo-migrator sync-attribute sku
+```
+
+**Output:**
+```
+🚀 Starting synchronization for attribute: sku
+✅ Attribute 'sku' synchronized successfully!
+```
+
+### Sync with Debug Mode
+
+```bash
+./bin/akeneo-migrator sync-attribute description --debug
+```
+
+**Output:**
+```
+🚀 Starting synchronization for attribute: description
+🔍 Debug mode enabled
+✅ Attribute 'description' synchronized successfully!
+```
+
+### Common Attributes to Sync
+
+```bash
+# Core attributes
+./bin/akeneo-migrator sync-attribute sku
+./bin/akeneo-migrator sync-attribute name
+./bin/akeneo-migrator sync-attribute description
+
+# Custom attributes
+./bin/akeneo-migrator sync-attribute my_custom_field
+./bin/akeneo-migrator sync-attribute brand_reference
+```
+
+### Batch Attribute Sync
+
+```bash
+#!/bin/bash
+# sync-attributes.sh
+
+attributes=("sku" "name" "description" "price" "weight")
+
+for attr in "${attributes[@]}"; do
+  echo "Syncing attribute: $attr"
+  ./bin/akeneo-migrator sync-attribute "$attr"
+  echo "---"
+done
+```
+
+### Attribute Not Found Error
+
+```bash
+$ ./bin/akeneo-migrator sync-attribute nonexistent
+
+❌ Synchronization error: error fetching attribute from source: 
+attribute 'nonexistent' not found
+```
+
+### Complete Migration Workflow
+
+```bash
+# 1. Sync attributes first (structure)
+./bin/akeneo-migrator sync-attribute sku
+./bin/akeneo-migrator sync-attribute name
+./bin/akeneo-migrator sync-attribute description
+
+# 2. Sync Reference Entities (data)
+./bin/akeneo-migrator sync brands
+./bin/akeneo-migrator sync colors
+
+# 3. Sync products (final data)
+./bin/akeneo-migrator sync-product COMMON-001
+```

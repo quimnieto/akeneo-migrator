@@ -1055,3 +1055,109 @@ func (c *Client) cleanProductModel(model ProductModel) ProductModel {
 
 	return cleaned
 }
+
+// Attribute represents an attribute
+type Attribute map[string]interface{}
+
+// GetAttribute retrieves an attribute by its code
+func (c *Client) GetAttribute(code string) (Attribute, error) {
+	if err := c.ensureValidToken(); err != nil {
+		return nil, err
+	}
+
+	url := fmt.Sprintf("%s/api/rest/v1/attributes/%s", c.config.Host, code)
+
+	req, err := http.NewRequest("GET", url, nil)
+	if err != nil {
+		return nil, err
+	}
+
+	req.Header.Set("Authorization", "Bearer "+c.accessToken)
+	req.Header.Set("Content-Type", "application/json")
+
+	resp, err := c.httpClient.Do(req)
+	if err != nil {
+		return nil, err
+	}
+	defer func() { _ = resp.Body.Close() }()
+
+	if resp.StatusCode == http.StatusNotFound {
+		return nil, fmt.Errorf("attribute '%s' not found", code)
+	}
+
+	if resp.StatusCode != http.StatusOK {
+		body, _ := io.ReadAll(resp.Body)
+		return nil, fmt.Errorf("error fetching attribute: %d - %s", resp.StatusCode, string(body))
+	}
+
+	var attribute Attribute
+	if err := json.NewDecoder(resp.Body).Decode(&attribute); err != nil {
+		return nil, err
+	}
+
+	return attribute, nil
+}
+
+// PatchAttribute creates or updates an attribute
+func (c *Client) PatchAttribute(code string, attribute Attribute) error {
+	if err := c.ensureValidToken(); err != nil {
+		return err
+	}
+
+	// Clean fields that should not be sent
+	cleanAttribute := c.cleanAttribute(attribute)
+
+	jsonData, err := json.Marshal(cleanAttribute)
+	if err != nil {
+		return err
+	}
+
+	url := fmt.Sprintf("%s/api/rest/v1/attributes/%s", c.config.Host, code)
+
+	req, err := http.NewRequest("PATCH", url, bytes.NewReader(jsonData))
+	if err != nil {
+		return err
+	}
+
+	req.Header.Set("Authorization", "Bearer "+c.accessToken)
+	req.Header.Set("Content-Type", "application/json")
+
+	resp, err := c.httpClient.Do(req)
+	if err != nil {
+		return err
+	}
+	defer func() { _ = resp.Body.Close() }()
+
+	if resp.StatusCode != http.StatusOK && resp.StatusCode != http.StatusCreated && resp.StatusCode != http.StatusNoContent {
+		body, _ := io.ReadAll(resp.Body)
+
+		if resp.StatusCode == http.StatusUnprocessableEntity {
+			var errorResponse AkeneoErrorResponse
+			if parseErr := json.Unmarshal(body, &errorResponse); parseErr == nil {
+				return fmt.Errorf("validation error in attribute %s: %s", code, c.formatAkeneoErrors(errorResponse))
+			}
+		}
+
+		return fmt.Errorf("error updating attribute %s: %d - %s", code, resp.StatusCode, string(body))
+	}
+
+	return nil
+}
+
+// cleanAttribute removes fields that should not be sent in write operations
+func (c *Client) cleanAttribute(attribute Attribute) Attribute {
+	cleaned := make(Attribute)
+
+	// List of fields to exclude
+	excludedFields := map[string]bool{
+		"_links": true,
+	}
+
+	for key, value := range attribute {
+		if !excludedFields[key] && value != nil {
+			cleaned[key] = value
+		}
+	}
+
+	return cleaned
+}
