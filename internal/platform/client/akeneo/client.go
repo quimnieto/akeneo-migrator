@@ -1161,3 +1161,111 @@ func (c *Client) cleanAttribute(attribute Attribute) Attribute {
 
 	return cleaned
 }
+
+// Category represents a category
+type Category map[string]interface{}
+
+// GetCategory retrieves a category by its code
+func (c *Client) GetCategory(code string) (Category, error) {
+	if err := c.ensureValidToken(); err != nil {
+		return nil, err
+	}
+
+	url := fmt.Sprintf("%s/api/rest/v1/categories/%s", c.config.Host, code)
+
+	req, err := http.NewRequest("GET", url, nil)
+	if err != nil {
+		return nil, err
+	}
+
+	req.Header.Set("Authorization", "Bearer "+c.accessToken)
+	req.Header.Set("Content-Type", "application/json")
+
+	resp, err := c.httpClient.Do(req)
+	if err != nil {
+		return nil, err
+	}
+	defer func() { _ = resp.Body.Close() }()
+
+	if resp.StatusCode == http.StatusNotFound {
+		return nil, fmt.Errorf("category '%s' not found", code)
+	}
+
+	if resp.StatusCode != http.StatusOK {
+		body, _ := io.ReadAll(resp.Body)
+		return nil, fmt.Errorf("error fetching category: %d - %s", resp.StatusCode, string(body))
+	}
+
+	var categoryData Category
+	if err := json.NewDecoder(resp.Body).Decode(&categoryData); err != nil {
+		return nil, err
+	}
+
+	return categoryData, nil
+}
+
+// PatchCategory creates or updates a category
+func (c *Client) PatchCategory(code string, categoryData Category) error {
+	if err := c.ensureValidToken(); err != nil {
+		return err
+	}
+
+	// Clean fields that should not be sent
+	cleanCategory := c.cleanCategory(categoryData)
+
+	jsonData, err := json.Marshal(cleanCategory)
+	if err != nil {
+		return err
+	}
+
+	url := fmt.Sprintf("%s/api/rest/v1/categories/%s", c.config.Host, code)
+
+	req, err := http.NewRequest("PATCH", url, bytes.NewReader(jsonData))
+	if err != nil {
+		return err
+	}
+
+	req.Header.Set("Authorization", "Bearer "+c.accessToken)
+	req.Header.Set("Content-Type", "application/json")
+
+	resp, err := c.httpClient.Do(req)
+	if err != nil {
+		return err
+	}
+	defer func() { _ = resp.Body.Close() }()
+
+	if resp.StatusCode != http.StatusOK && resp.StatusCode != http.StatusCreated && resp.StatusCode != http.StatusNoContent {
+		body, _ := io.ReadAll(resp.Body)
+
+		if resp.StatusCode == http.StatusUnprocessableEntity {
+			var errorResponse AkeneoErrorResponse
+			if parseErr := json.Unmarshal(body, &errorResponse); parseErr == nil {
+				return fmt.Errorf("validation error in category %s: %s", code, c.formatAkeneoErrors(errorResponse))
+			}
+		}
+
+		return fmt.Errorf("error updating category %s: %d - %s", code, resp.StatusCode, string(body))
+	}
+
+	return nil
+}
+
+// cleanCategory removes fields that should not be sent in write operations
+func (c *Client) cleanCategory(categoryData Category) Category {
+	cleaned := make(Category)
+
+	// List of fields to exclude (metadata fields from API responses)
+	excludedFields := map[string]bool{
+		"_links":  true,
+		"created": true,
+		"updated": true,
+	}
+
+	for key, value := range categoryData {
+		if !excludedFields[key] && value != nil {
+			cleaned[key] = value
+		}
+	}
+
+	return cleaned
+}

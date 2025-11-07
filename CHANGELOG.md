@@ -12,6 +12,13 @@ All notable changes to this project will be documented in this file.
   - Centralized command dispatching
   - Documentation in COMMAND_BUS.md
   
+- **Category synchronization feature**
+  - New `sync-category` command to sync individual categories
+  - Domain interfaces for category operations
+  - Akeneo client methods for category API
+  - Complete test coverage for category syncing
+  - Documentation in CATEGORY_SYNC_FEATURE.md
+  
 - **Attribute synchronization feature**
   - New `sync-attribute` command to sync individual attributes
   - Domain interfaces for attribute operations
@@ -22,9 +29,15 @@ All notable changes to this project will be documented in this file.
 ### Changed
 - **Refactored Bootstrap**: Now uses Command Bus instead of direct service calls
 - **Simplified Application struct**: Only contains Config and CommandBus
+- **Reorganized config module**: Moved from `internal/config` to `internal/platform/config` (infrastructure layer)
 - Updated golangci-lint configuration to v2 format
 - Improved error handling with explicit blank identifier usage
 - Fixed shadow variable errors in syncing services
+
+### Documentation
+- Added ARCHITECTURE.md with complete architecture documentation
+- Updated README.md with improved layer descriptions
+- Enhanced COMMAND_BUS.md with usage examples
 
 ### Fixed
 - CI pipeline compatibility with Go 1.25.0 (local) and Go 1.23 (CI)

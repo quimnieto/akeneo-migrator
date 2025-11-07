@@ -112,6 +112,18 @@ This will synchronize:
 
 This will synchronize a single attribute definition from source to destination.
 
+### Synchronize a Category
+
+```bash
+# Sync a single category
+./akeneo-migrator sync-category master
+
+# Sync with debug mode
+./akeneo-migrator sync-category clothing --debug
+```
+
+This will synchronize a single category from source to destination.
+
 ### Debug Mode
 
 ```bash
@@ -197,7 +209,7 @@ CLI → Command → Bus → Middleware → Handler → Service → Repository
 - ✅ **Maintainable**: Clear separation of responsibilities
 - ✅ **Observable**: Centralized logging and metrics through middleware
 
-See [COMMAND_BUS.md](COMMAND_BUS.md) for detailed Command Bus documentation.
+See [ARCHITECTURE.md](ARCHITECTURE.md) for complete architecture documentation and [COMMAND_BUS.md](COMMAND_BUS.md) for Command Bus details.
 
 ## Development
 

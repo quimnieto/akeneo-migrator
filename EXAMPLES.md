@@ -442,3 +442,88 @@ attribute 'nonexistent' not found
 # 3. Sync products (final data)
 ./bin/akeneo-migrator sync-product COMMON-001
 ```
+
+## Category Synchronization
+
+### Sync Single Category
+
+```bash
+# Sync master category
+./bin/akeneo-migrator sync-category master
+```
+
+**Output:**
+```
+🚀 Starting synchronization for category: master
+✅ Category 'master' synchronized successfully!
+```
+
+### Sync with Debug Mode
+
+```bash
+./bin/akeneo-migrator sync-category clothing --debug
+```
+
+**Output:**
+```
+🚀 Starting synchronization for category: clothing
+🔍 Debug mode enabled
+✅ Category 'clothing' synchronized successfully!
+```
+
+### Common Categories to Sync
+
+```bash
+# Root categories
+./bin/akeneo-migrator sync-category master
+./bin/akeneo-migrator sync-category products
+
+# Sub-categories
+./bin/akeneo-migrator sync-category clothing
+./bin/akeneo-migrator sync-category electronics
+./bin/akeneo-migrator sync-category home
+```
+
+### Batch Category Sync
+
+```bash
+#!/bin/bash
+# sync-categories.sh
+
+categories=("master" "clothing" "electronics" "home" "sports")
+
+for cat in "${categories[@]}"; do
+  echo "Syncing category: $cat"
+  ./bin/akeneo-migrator sync-category "$cat"
+  echo "---"
+done
+```
+
+### Category Not Found Error
+
+```bash
+$ ./bin/akeneo-migrator sync-category nonexistent
+
+❌ Synchronization error: error fetching category from source: 
+category 'nonexistent' not found
+```
+
+### Complete Migration Workflow with Categories
+
+```bash
+# 1. Sync categories first (structure)
+./bin/akeneo-migrator sync-category master
+./bin/akeneo-migrator sync-category clothing
+./bin/akeneo-migrator sync-category electronics
+
+# 2. Sync attributes (metadata)
+./bin/akeneo-migrator sync-attribute sku
+./bin/akeneo-migrator sync-attribute name
+
+# 3. Sync Reference Entities (data)
+./bin/akeneo-migrator sync brands
+./bin/akeneo-migrator sync colors
+
+# 4. Sync products (final data)
+./bin/akeneo-migrator sync-product COMMON-001
+```
