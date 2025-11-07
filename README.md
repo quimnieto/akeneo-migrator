@@ -165,15 +165,23 @@ The project follows the **Hexagonal Architecture** pattern (Ports & Adapters) wi
 ### Layers
 
 - **Domain** (`internal/[module]/`): Contains business logic and interfaces (ports)
+  - `repository.go`: Domain interfaces
+  
 - **Application** (`internal/[module]/syncing/`): Use cases and application logic
-  - Services: Business logic implementation
-  - Commands: Command definitions
-  - Handlers: Command execution logic
+  - `service.go`: Business logic implementation
+  - `command.go`: Command definitions
+  - `command_handler.go`: Command execution logic
+  
 - **Infrastructure** (`internal/platform/`): Concrete implementations (adapters)
   - `client/akeneo/`: HTTP client for Akeneo API
-  - `storage/akeneo/`: Repository implementation using the client
-- **Command Bus** (`kit/bus/`): Command dispatching and middleware
-- **Bootstrap** (`cmd/app/bootstrap/`): Dependency injection and configuration
+  - `storage/akeneo/`: Repository implementations
+  - `config/`: Configuration management
+  
+- **Shared Kernel** (`kit/`): Reusable components
+  - `bus/`: Command bus and middleware
+  - `config/`: Configuration loaders
+  
+- **Bootstrap** (`cmd/app/bootstrap/`): Dependency injection and wiring
 
 ### Command Bus Flow
 

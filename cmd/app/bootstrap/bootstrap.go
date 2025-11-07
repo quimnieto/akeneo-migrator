@@ -7,8 +7,8 @@ import (
 	"os"
 
 	attribute_syncing "akeneo-migrator/internal/attribute/syncing"
-	"akeneo-migrator/internal/config"
 	"akeneo-migrator/internal/platform/client/akeneo"
+	"akeneo-migrator/internal/platform/config"
 	akeneo_storage "akeneo-migrator/internal/platform/storage/akeneo"
 	product_syncing "akeneo-migrator/internal/product/syncing"
 	"akeneo-migrator/internal/reference_entity/syncing"
