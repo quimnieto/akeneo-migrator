@@ -11,8 +11,9 @@ import (
 
 // MockSourceRepository is a mock of the source repository for testing
 type MockSourceRepository struct {
-	findEntityFunc func(ctx context.Context, entityCode string) (reference_entity.Entity, error)
-	findAllFunc    func(ctx context.Context, entityName string) ([]reference_entity.Record, error)
+	findEntityFunc     func(ctx context.Context, entityCode string) (reference_entity.Entity, error)
+	findAttributesFunc func(ctx context.Context, entityCode string) ([]reference_entity.Attribute, error)
+	findAllFunc        func(ctx context.Context, entityName string) ([]reference_entity.Record, error)
 }
 
 func (m *MockSourceRepository) FindEntity(ctx context.Context, entityCode string) (reference_entity.Entity, error) {
@@ -20,6 +21,13 @@ func (m *MockSourceRepository) FindEntity(ctx context.Context, entityCode string
 		return m.findEntityFunc(ctx, entityCode)
 	}
 	return reference_entity.Entity{"code": entityCode}, nil
+}
+
+func (m *MockSourceRepository) FindAttributes(ctx context.Context, entityCode string) ([]reference_entity.Attribute, error) {
+	if m.findAttributesFunc != nil {
+		return m.findAttributesFunc(ctx, entityCode)
+	}
+	return []reference_entity.Attribute{}, nil
 }
 
 func (m *MockSourceRepository) FindAll(ctx context.Context, entityName string) ([]reference_entity.Record, error) {
@@ -31,10 +39,12 @@ func (m *MockSourceRepository) FindAll(ctx context.Context, entityName string) (
 
 // MockDestRepository is a mock of the destination repository for testing
 type MockDestRepository struct {
-	findEntityFunc func(ctx context.Context, entityCode string) (reference_entity.Entity, error)
-	saveEntityFunc func(ctx context.Context, entityCode string, entity reference_entity.Entity) error
-	findAllFunc    func(ctx context.Context, entityName string) ([]reference_entity.Record, error)
-	saveFunc       func(ctx context.Context, entityName string, code string, record reference_entity.Record) error
+	findEntityFunc     func(ctx context.Context, entityCode string) (reference_entity.Entity, error)
+	saveEntityFunc     func(ctx context.Context, entityCode string, entity reference_entity.Entity) error
+	findAttributesFunc func(ctx context.Context, entityCode string) ([]reference_entity.Attribute, error)
+	saveAttributeFunc  func(ctx context.Context, entityCode string, attributeCode string, attribute reference_entity.Attribute) error
+	findAllFunc        func(ctx context.Context, entityName string) ([]reference_entity.Record, error)
+	saveFunc           func(ctx context.Context, entityName string, code string, record reference_entity.Record) error
 }
 
 func (m *MockDestRepository) FindEntity(ctx context.Context, entityCode string) (reference_entity.Entity, error) {
@@ -47,6 +57,20 @@ func (m *MockDestRepository) FindEntity(ctx context.Context, entityCode string) 
 func (m *MockDestRepository) SaveEntity(ctx context.Context, entityCode string, entity reference_entity.Entity) error {
 	if m.saveEntityFunc != nil {
 		return m.saveEntityFunc(ctx, entityCode, entity)
+	}
+	return nil
+}
+
+func (m *MockDestRepository) FindAttributes(ctx context.Context, entityCode string) ([]reference_entity.Attribute, error) {
+	if m.findAttributesFunc != nil {
+		return m.findAttributesFunc(ctx, entityCode)
+	}
+	return []reference_entity.Attribute{}, nil
+}
+
+func (m *MockDestRepository) SaveAttribute(ctx context.Context, entityCode string, attributeCode string, attribute reference_entity.Attribute) error {
+	if m.saveAttributeFunc != nil {
+		return m.saveAttributeFunc(ctx, entityCode, attributeCode, attribute)
 	}
 	return nil
 }

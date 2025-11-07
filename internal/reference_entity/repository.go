@@ -8,10 +8,16 @@ type Record map[string]interface{}
 // Entity represents a Reference Entity definition
 type Entity map[string]interface{}
 
+// Attribute represents a Reference Entity attribute definition
+type Attribute map[string]interface{}
+
 // SourceRepository defines read-only operations for the source
 type SourceRepository interface {
 	// FindEntity retrieves a Reference Entity definition
 	FindEntity(ctx context.Context, entityCode string) (Entity, error)
+	
+	// FindAttributes retrieves all attributes from a Reference Entity
+	FindAttributes(ctx context.Context, entityCode string) ([]Attribute, error)
 	
 	// FindAll retrieves all records from a Reference Entity
 	FindAll(ctx context.Context, entityName string) ([]Record, error)
@@ -24,6 +30,12 @@ type DestRepository interface {
 	
 	// SaveEntity creates or updates a Reference Entity definition
 	SaveEntity(ctx context.Context, entityCode string, entity Entity) error
+	
+	// FindAttributes retrieves all attributes from a Reference Entity
+	FindAttributes(ctx context.Context, entityCode string) ([]Attribute, error)
+	
+	// SaveAttribute creates or updates a Reference Entity attribute
+	SaveAttribute(ctx context.Context, entityCode string, attributeCode string, attribute Attribute) error
 	
 	// FindAll retrieves all records from a Reference Entity
 	FindAll(ctx context.Context, entityName string) ([]Record, error)

@@ -36,7 +36,7 @@ type SyncError struct {
 	Message string
 }
 
-// Sync synchronizes a Reference Entity (definition + records) from source to destination
+// Sync synchronizes a Reference Entity (definition + attributes + records) from source to destination
 func (s *Service) Sync(ctx context.Context, entityName string) (*SyncResult, error) {
 	result := &SyncResult{
 		EntityName: entityName,
@@ -55,7 +55,26 @@ func (s *Service) Sync(ctx context.Context, entityName string) (*SyncResult, err
 		return nil, fmt.Errorf("error creating/updating reference entity in destination: %w", err)
 	}
 
-	// 3. Get all records from source
+	// 3. Get all attributes from source
+	attributes, err := s.sourceRepo.FindAttributes(ctx, entityName)
+	if err != nil {
+		return nil, fmt.Errorf("error fetching attributes from source: %w", err)
+	}
+
+	// 4. Sync each attribute to destination
+	for _, attribute := range attributes {
+		attributeCode, ok := attribute["code"].(string)
+		if !ok {
+			return nil, fmt.Errorf("could not extract attribute code from attribute")
+		}
+
+		err := s.destRepo.SaveAttribute(ctx, entityName, attributeCode, attribute)
+		if err != nil {
+			return nil, fmt.Errorf("error creating/updating attribute %s in destination: %w", attributeCode, err)
+		}
+	}
+
+	// 5. Get all records from source
 	records, err := s.sourceRepo.FindAll(ctx, entityName)
 	if err != nil {
 		return nil, fmt.Errorf("error fetching records from source: %w", err)
@@ -63,7 +82,7 @@ func (s *Service) Sync(ctx context.Context, entityName string) (*SyncResult, err
 
 	result.TotalRecords = len(records)
 
-	// 4. Sync each record to destination
+	// 6. Sync each record to destination
 	for _, record := range records {
 		code, ok := record["code"].(string)
 		if !ok {

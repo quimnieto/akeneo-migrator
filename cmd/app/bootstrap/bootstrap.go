@@ -140,8 +140,10 @@ func runSyncCommand(app *Application) func(cmd *cobra.Command, args []string) {
 		}
 
 		// Execute synchronization using the service
-		fmt.Printf("📋 Synchronizing Reference Entity definition for '%s'...\n", entityName)
-		fmt.Printf("📥 Fetching records from entity '%s'...\n", entityName)
+		fmt.Printf("📋 Synchronizing Reference Entity '%s'...\n", entityName)
+		fmt.Println("   1️⃣  Syncing entity definition...")
+		fmt.Println("   2️⃣  Syncing attributes...")
+		fmt.Println("   3️⃣  Syncing records...")
 		
 		result, err := app.ReferenceEntitySyncer.Sync(ctx, entityName)
 		if err != nil {

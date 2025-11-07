@@ -29,6 +29,22 @@ func (r *SourceReferenceEntityRepository) FindEntity(ctx context.Context, entity
 	return reference_entity.Entity(entity), nil
 }
 
+// FindAttributes retrieves all attributes from a Reference Entity
+func (r *SourceReferenceEntityRepository) FindAttributes(ctx context.Context, entityCode string) ([]reference_entity.Attribute, error) {
+	attributes, err := r.client.GetReferenceEntityAttributes(entityCode)
+	if err != nil {
+		return nil, err
+	}
+
+	// Convert from akeneo.ReferenceEntityAttribute to reference_entity.Attribute
+	result := make([]reference_entity.Attribute, len(attributes))
+	for i, attr := range attributes {
+		result[i] = reference_entity.Attribute(attr)
+	}
+
+	return result, nil
+}
+
 // FindAll retrieves all records from a Reference Entity
 func (r *SourceReferenceEntityRepository) FindAll(ctx context.Context, entityName string) ([]reference_entity.Record, error) {
 	records, err := r.client.GetReferenceEntityRecords(entityName)
@@ -72,6 +88,29 @@ func (r *DestReferenceEntityRepository) SaveEntity(ctx context.Context, entityCo
 	// Convert from reference_entity.Entity to akeneo.ReferenceEntity
 	akeneoEntity := akeneo.ReferenceEntity(entity)
 	return r.client.PatchReferenceEntity(entityCode, akeneoEntity)
+}
+
+// FindAttributes retrieves all attributes from a Reference Entity
+func (r *DestReferenceEntityRepository) FindAttributes(ctx context.Context, entityCode string) ([]reference_entity.Attribute, error) {
+	attributes, err := r.client.GetReferenceEntityAttributes(entityCode)
+	if err != nil {
+		return nil, err
+	}
+
+	// Convert from akeneo.ReferenceEntityAttribute to reference_entity.Attribute
+	result := make([]reference_entity.Attribute, len(attributes))
+	for i, attr := range attributes {
+		result[i] = reference_entity.Attribute(attr)
+	}
+
+	return result, nil
+}
+
+// SaveAttribute creates or updates a Reference Entity attribute
+func (r *DestReferenceEntityRepository) SaveAttribute(ctx context.Context, entityCode string, attributeCode string, attribute reference_entity.Attribute) error {
+	// Convert from reference_entity.Attribute to akeneo.ReferenceEntityAttribute
+	akeneoAttribute := akeneo.ReferenceEntityAttribute(attribute)
+	return r.client.PatchReferenceEntityAttribute(entityCode, attributeCode, akeneoAttribute)
 }
 
 // FindAll retrieves all records from a Reference Entity
