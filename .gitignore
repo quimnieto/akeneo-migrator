@@ -1,0 +1,24 @@
+# Environment variables
+.env
+
+# Local configuration files
+configs/settings.local.json
+
+# Binary
+akeneo-migrator
+
+# JetBrains IDE
+.idea/
+
+# VSCode
+.vscode/
+
+# Go
+*.exe
+*.exe~
+*.dll
+*.so
+*.dylib
+*.test
+*.out
+go.work
