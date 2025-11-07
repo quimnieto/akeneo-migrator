@@ -9,6 +9,8 @@ import (
 	"akeneo-migrator/internal/config"
 	"akeneo-migrator/internal/platform/client/akeneo"
 	akeneo_storage "akeneo-migrator/internal/platform/storage/akeneo"
+	"akeneo-migrator/internal/product"
+	product_syncing "akeneo-migrator/internal/product/syncing"
 	"akeneo-migrator/internal/reference_entity"
 	"akeneo-migrator/internal/reference_entity/syncing"
 	"akeneo-migrator/kit/config/static/viper"
@@ -26,6 +28,9 @@ type Application struct {
 	SourceRepository      reference_entity.SourceRepository
 	DestRepository        reference_entity.DestRepository
 	ReferenceEntitySyncer *syncing.Service
+	SourceProductRepo     product.SourceRepository
+	DestProductRepo       product.DestRepository
+	ProductSyncer         *product_syncing.Service
 }
 
 // Run initializes the application and executes CLI commands
@@ -73,9 +78,12 @@ func Run() error {
 	// 5. Create repositories
 	sourceRepository := akeneo_storage.NewSourceReferenceEntityRepository(sourceClient)
 	destRepository := akeneo_storage.NewDestReferenceEntityRepository(destClient)
+	sourceProductRepo := akeneo_storage.NewSourceProductRepository(sourceClient)
+	destProductRepo := akeneo_storage.NewDestProductRepository(destClient)
 
 	// 6. Create services
 	referenceEntitySyncer := syncing.NewService(sourceRepository, destRepository)
+	productSyncer := product_syncing.NewService(sourceProductRepo, destProductRepo)
 
 	// 7. Create application with dependencies
 	app := &Application{
@@ -85,6 +93,9 @@ func Run() error {
 		SourceRepository:      sourceRepository,
 		DestRepository:        destRepository,
 		ReferenceEntitySyncer: referenceEntitySyncer,
+		SourceProductRepo:     sourceProductRepo,
+		DestProductRepo:       destProductRepo,
+		ProductSyncer:         productSyncer,
 	}
 
 	// 8. Create root command
@@ -99,6 +110,9 @@ products, categories and other elements.`,
 	// 9. Add commands
 	syncCmd := createSyncCommand(app)
 	rootCmd.AddCommand(syncCmd)
+
+	syncProductCmd := createSyncProductCommand(app)
+	rootCmd.AddCommand(syncProductCmd)
 
 	// 10. Execute root command
 	return rootCmd.Execute()
@@ -184,5 +198,78 @@ func setupDefaultEnvironmentVariables() {
 	}
 	if os.Getenv("CONFIG_PATH") == "" {
 		os.Setenv("CONFIG_PATH", "akeneo-migrator")
+	}
+}
+
+// createSyncProductCommand creates the sync-product command
+func createSyncProductCommand(app *Application) *cobra.Command {
+	cmd := &cobra.Command{
+		Use:   "sync-product [identifier]",
+		Short: "Synchronizes a product hierarchy by its common identifier",
+		Long: `Synchronizes a complete product hierarchy from the source Akeneo to the destination Akeneo.
+
+For SIMPLE products: Common → Child Products
+For CONFIGURABLE products: Common → Models → Variant Products
+
+Requires the common product/model identifier as an argument.
+
+Example:
+  akeneo-migrator sync-product COMMON-001
+  akeneo-migrator sync-product COMMON-001 --debug
+  akeneo-migrator sync-product COMMON-001 --single  # Sync only the product, not hierarchy`,
+		Args: cobra.ExactArgs(1),
+		Run:  runSyncProductCommand(app),
+	}
+
+	// Add flags
+	cmd.Flags().Bool("debug", false, "Enable debug mode to see product contents")
+	cmd.Flags().Bool("single", false, "Sync only the single product, not the entire hierarchy")
+
+	return cmd
+}
+
+// runSyncProductCommand executes the product synchronization logic
+func runSyncProductCommand(app *Application) func(cmd *cobra.Command, args []string) {
+	return func(cmd *cobra.Command, args []string) {
+		identifier := args[0]
+		ctx := context.Background()
+
+		// Get flags
+		debug, _ := cmd.Flags().GetBool("debug")
+		single, _ := cmd.Flags().GetBool("single")
+
+		fmt.Printf("🚀 Starting synchronization for product: %s\n", identifier)
+		if debug {
+			fmt.Println("🔍 Debug mode enabled")
+		}
+
+		var result *product_syncing.SyncResult
+		var err error
+
+		if single {
+			// Sync only the single product
+			fmt.Printf("📥 Fetching product '%s' from source...\n", identifier)
+			result, err = app.ProductSyncer.Sync(ctx, identifier)
+		} else {
+			// Sync entire hierarchy
+			fmt.Printf("📥 Fetching product hierarchy for '%s' from source...\n", identifier)
+			result, err = app.ProductSyncer.SyncHierarchy(ctx, identifier)
+		}
+
+		if err != nil {
+			log.Printf("❌ Synchronization error: %v\n", err)
+			return
+		}
+
+		// Show result
+		if result.Success {
+			fmt.Println("\n📋 Synchronization Summary:")
+			fmt.Printf("   📦 Models synced: %d\n", result.ModelsSynced)
+			fmt.Printf("   📦 Products synced: %d\n", result.ProductsSynced)
+			fmt.Printf("   📊 Total synced: %d\n", result.TotalSynced)
+			fmt.Printf("\n✅ Hierarchy '%s' synchronized successfully!\n", result.Identifier)
+		} else {
+			fmt.Printf("❌ Failed to synchronize '%s': %s\n", result.Identifier, result.Error)
+		}
 	}
 }

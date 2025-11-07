@@ -86,6 +86,20 @@ This will:
    - Creates or updates each attribute in the destination
 3. **Synchronize all records** from the "brands" Reference Entity from source to destination
 
+### Synchronize a Product Hierarchy
+
+```bash
+# Sync complete hierarchy (common → models → products)
+./akeneo-migrator sync-product COMMON-001
+
+# Sync only a single product (no hierarchy)
+./akeneo-migrator sync-product SKU-12345 --single
+```
+
+This will synchronize:
+- **Simple products**: Common → Child Products (2 levels)
+- **Configurable products**: Common → Models → Variant Products (3 levels)
+
 ### Debug Mode
 
 ```bash
