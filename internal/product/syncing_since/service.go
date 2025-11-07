@@ -72,9 +72,9 @@ func (s *Service) Sync(ctx context.Context, updatedSince string) (*SyncResult, e
 
 			fmt.Printf("   🔄 Syncing hierarchy from root: %s (triggered by model: %s)\n", root, code)
 
-			hierarchyResult, err := s.syncingService.Sync(ctx, root)
-			if err != nil {
-				result.Errors = append(result.Errors, fmt.Sprintf("error syncing root %s: %v", root, err))
+			hierarchyResult, syncErr := s.syncingService.Sync(ctx, root)
+			if syncErr != nil {
+				result.Errors = append(result.Errors, fmt.Sprintf("error syncing root %s: %v", root, syncErr))
 				continue
 			}
 
@@ -112,9 +112,9 @@ func (s *Service) Sync(ctx context.Context, updatedSince string) (*SyncResult, e
 
 			fmt.Printf("   🔄 Syncing hierarchy from root: %s (triggered by product: %s)\n", root, identifier)
 
-			hierarchyResult, err := s.syncingService.Sync(ctx, root)
-			if err != nil {
-				result.Errors = append(result.Errors, fmt.Sprintf("error syncing root %s: %v", root, err))
+			hierarchyResult, syncErr := s.syncingService.Sync(ctx, root)
+			if syncErr != nil {
+				result.Errors = append(result.Errors, fmt.Sprintf("error syncing root %s: %v", root, syncErr))
 				continue
 			}
 
