@@ -1264,6 +1264,245 @@ func (c *Client) cleanCategory(categoryData Category) Category {
 	return cleaned
 }
 
+// Family represents a family
+type Family map[string]interface{}
+
+// GetFamily retrieves a family by its code
+func (c *Client) GetFamily(code string) (Family, error) {
+	if err := c.ensureValidToken(); err != nil {
+		return nil, err
+	}
+
+	url := fmt.Sprintf("%s/api/rest/v1/families/%s", c.config.Host, code)
+
+	req, err := http.NewRequest("GET", url, nil)
+	if err != nil {
+		return nil, err
+	}
+
+	req.Header.Set("Authorization", "Bearer "+c.accessToken)
+	req.Header.Set("Content-Type", "application/json")
+
+	resp, err := c.httpClient.Do(req)
+	if err != nil {
+		return nil, err
+	}
+	defer func() { _ = resp.Body.Close() }()
+
+	if resp.StatusCode == http.StatusNotFound {
+		return nil, fmt.Errorf("family '%s' not found", code)
+	}
+
+	if resp.StatusCode != http.StatusOK {
+		body, _ := io.ReadAll(resp.Body)
+		return nil, fmt.Errorf("error fetching family: %d - %s", resp.StatusCode, string(body))
+	}
+
+	var familyData Family
+	if err := json.NewDecoder(resp.Body).Decode(&familyData); err != nil {
+		return nil, err
+	}
+
+	return familyData, nil
+}
+
+// PatchFamily creates or updates a family
+func (c *Client) PatchFamily(code string, familyData Family) error {
+	if err := c.ensureValidToken(); err != nil {
+		return err
+	}
+
+	// Clean fields that should not be sent
+	cleanFamily := c.cleanFamily(familyData)
+
+	jsonData, err := json.Marshal(cleanFamily)
+	if err != nil {
+		return err
+	}
+
+	url := fmt.Sprintf("%s/api/rest/v1/families/%s", c.config.Host, code)
+
+	req, err := http.NewRequest("PATCH", url, bytes.NewReader(jsonData))
+	if err != nil {
+		return err
+	}
+
+	req.Header.Set("Authorization", "Bearer "+c.accessToken)
+	req.Header.Set("Content-Type", "application/json")
+
+	resp, err := c.httpClient.Do(req)
+	if err != nil {
+		return err
+	}
+	defer func() { _ = resp.Body.Close() }()
+
+	if resp.StatusCode != http.StatusOK && resp.StatusCode != http.StatusCreated && resp.StatusCode != http.StatusNoContent {
+		body, _ := io.ReadAll(resp.Body)
+
+		if resp.StatusCode == http.StatusUnprocessableEntity {
+			var errorResponse AkeneoErrorResponse
+			if parseErr := json.Unmarshal(body, &errorResponse); parseErr == nil {
+				return fmt.Errorf("validation error in family %s: %s", code, c.formatAkeneoErrors(errorResponse))
+			}
+		}
+
+		return fmt.Errorf("error updating family %s: %d - %s", code, resp.StatusCode, string(body))
+	}
+
+	return nil
+}
+
+// cleanFamily removes fields that should not be sent in write operations
+func (c *Client) cleanFamily(familyData Family) Family {
+	cleaned := make(Family)
+
+	// List of fields to exclude (metadata fields from API responses)
+	excludedFields := map[string]bool{
+		"_links": true,
+	}
+
+	for key, value := range familyData {
+		if !excludedFields[key] && value != nil {
+			cleaned[key] = value
+		}
+	}
+
+	return cleaned
+}
+
+// FamilyVariant represents a family variant
+type FamilyVariant map[string]interface{}
+
+// GetFamilyVariants retrieves all variants for a family
+func (c *Client) GetFamilyVariants(familyCode string) ([]FamilyVariant, error) {
+	if err := c.ensureValidToken(); err != nil {
+		return nil, err
+	}
+
+	var allVariants []FamilyVariant
+	page := 1
+	limit := 100
+
+	for {
+		url := fmt.Sprintf("%s/api/rest/v1/families/%s/variants?page=%d&limit=%d",
+			c.config.Host, familyCode, page, limit)
+
+		req, err := http.NewRequest("GET", url, nil)
+		if err != nil {
+			return nil, err
+		}
+
+		req.Header.Set("Authorization", "Bearer "+c.accessToken)
+		req.Header.Set("Content-Type", "application/json")
+
+		resp, err := c.httpClient.Do(req)
+		if err != nil {
+			return nil, err
+		}
+		defer func() { _ = resp.Body.Close() }()
+
+		if resp.StatusCode == http.StatusNotFound {
+			return nil, fmt.Errorf("family '%s' not found or has no variants", familyCode)
+		}
+
+		if resp.StatusCode != http.StatusOK {
+			body, _ := io.ReadAll(resp.Body)
+			return nil, fmt.Errorf("error fetching family variants: %d - %s", resp.StatusCode, string(body))
+		}
+
+		var response struct {
+			Embedded struct {
+				Items []FamilyVariant `json:"items"`
+			} `json:"_embedded"`
+			Links struct {
+				Next *struct {
+					Href string `json:"href"`
+				} `json:"next"`
+			} `json:"_links"`
+		}
+
+		if err := json.NewDecoder(resp.Body).Decode(&response); err != nil {
+			return nil, err
+		}
+
+		allVariants = append(allVariants, response.Embedded.Items...)
+
+		// If no next page, finish
+		if response.Links.Next == nil {
+			break
+		}
+
+		page++
+	}
+
+	return allVariants, nil
+}
+
+// PatchFamilyVariant creates or updates a family variant
+func (c *Client) PatchFamilyVariant(familyCode, variantCode string, variant FamilyVariant) error {
+	if err := c.ensureValidToken(); err != nil {
+		return err
+	}
+
+	// Clean fields that should not be sent
+	cleanVariant := c.cleanFamilyVariant(variant)
+
+	jsonData, err := json.Marshal(cleanVariant)
+	if err != nil {
+		return err
+	}
+
+	url := fmt.Sprintf("%s/api/rest/v1/families/%s/variants/%s",
+		c.config.Host, familyCode, variantCode)
+
+	req, err := http.NewRequest("PATCH", url, bytes.NewReader(jsonData))
+	if err != nil {
+		return err
+	}
+
+	req.Header.Set("Authorization", "Bearer "+c.accessToken)
+	req.Header.Set("Content-Type", "application/json")
+
+	resp, err := c.httpClient.Do(req)
+	if err != nil {
+		return err
+	}
+	defer func() { _ = resp.Body.Close() }()
+
+	if resp.StatusCode != http.StatusOK && resp.StatusCode != http.StatusCreated && resp.StatusCode != http.StatusNoContent {
+		body, _ := io.ReadAll(resp.Body)
+
+		if resp.StatusCode == http.StatusUnprocessableEntity {
+			var errorResponse AkeneoErrorResponse
+			if parseErr := json.Unmarshal(body, &errorResponse); parseErr == nil {
+				return fmt.Errorf("validation error in family variant %s: %s", variantCode, c.formatAkeneoErrors(errorResponse))
+			}
+		}
+
+		return fmt.Errorf("error updating family variant %s: %d - %s", variantCode, resp.StatusCode, string(body))
+	}
+
+	return nil
+}
+
+// cleanFamilyVariant removes fields that should not be sent in write operations
+func (c *Client) cleanFamilyVariant(variant FamilyVariant) FamilyVariant {
+	cleaned := make(FamilyVariant)
+
+	// List of fields to exclude
+	excludedFields := map[string]bool{
+		"_links": true,
+	}
+
+	for key, value := range variant {
+		if !excludedFields[key] && value != nil {
+			cleaned[key] = value
+		}
+	}
+
+	return cleaned
+}
+
 // GetProductsUpdatedSince retrieves all products updated since a specific date
 func (c *Client) GetProductsUpdatedSince(updatedSince string) ([]Product, error) {
 	if err := c.ensureValidToken(); err != nil {

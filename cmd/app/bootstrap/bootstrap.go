@@ -8,6 +8,7 @@ import (
 
 	attribute_syncing "akeneo-migrator/internal/attribute/syncing"
 	category_syncing "akeneo-migrator/internal/category/syncing"
+	family_syncing "akeneo-migrator/internal/family/syncing"
 	"akeneo-migrator/internal/platform/client/akeneo"
 	"akeneo-migrator/internal/platform/config"
 	akeneo_storage "akeneo-migrator/internal/platform/storage/akeneo"
@@ -80,15 +81,18 @@ func Run() error {
 	destProductRepo := akeneo_storage.NewDestProductRepository(destClient)
 	sourceAttributeRepo := akeneo_storage.NewSourceAttributeRepository(sourceClient)
 	destAttributeRepo := akeneo_storage.NewDestAttributeRepository(destClient)
+	sourceCategoryRepo := akeneo_storage.NewSourceCategoryRepository(sourceClient)
+	destCategoryRepo := akeneo_storage.NewDestCategoryRepository(destClient)
+	sourceFamilyRepo := akeneo_storage.NewSourceFamilyRepository(sourceClient)
+	destFamilyRepo := akeneo_storage.NewDestFamilyRepository(destClient)
 
 	// 6. Create services
 	referenceEntitySyncer := syncing.NewService(sourceRepository, destRepository)
 	productSyncer := product_syncing.NewService(sourceProductRepo, destProductRepo)
 	productSinceSyncer := product_syncing_since.NewService(sourceProductRepo, destProductRepo)
 	attributeSyncer := attribute_syncing.NewService(sourceAttributeRepo, destAttributeRepo)
-	sourceCategoryRepo := akeneo_storage.NewSourceCategoryRepository(sourceClient)
-	destCategoryRepo := akeneo_storage.NewDestCategoryRepository(destClient)
 	categorySyncer := category_syncing.NewService(sourceCategoryRepo, destCategoryRepo)
+	familySyncer := family_syncing.NewService(sourceFamilyRepo, destFamilyRepo)
 
 	// 7. Create command bus with middlewares
 	commandBus := inmemory.NewCommandBus(
@@ -115,6 +119,10 @@ func Run() error {
 	commandBus.Register(
 		category_syncing.SyncCategoryCommandType,
 		category_syncing.NewCommandHandler(categorySyncer),
+	)
+	commandBus.Register(
+		family_syncing.SyncFamilyCommandType,
+		family_syncing.NewCommandHandler(familySyncer),
 	)
 
 	// 9. Create application with dependencies
@@ -144,6 +152,9 @@ products, categories and other elements.`,
 
 	syncCategoryCmd := createSyncCategoryCommand(app)
 	rootCmd.AddCommand(syncCategoryCmd)
+
+	syncFamilyCmd := createSyncFamilyCommand(app)
+	rootCmd.AddCommand(syncFamilyCmd)
 
 	syncUpdatedProductsCmd := createSyncUpdatedProductsCommand(app)
 	rootCmd.AddCommand(syncUpdatedProductsCmd)
@@ -444,6 +455,78 @@ func runSyncCategoryCommand(app *Application) func(cmd *cobra.Command, args []st
 		// Show result
 		if result.Success {
 			fmt.Printf("\n✅ Category '%s' synchronized successfully!\n", result.Code)
+		} else {
+			fmt.Printf("❌ Failed to synchronize '%s': %s\n", result.Code, result.Error)
+		}
+	}
+}
+
+// createSyncFamilyCommand creates the sync-family command
+func createSyncFamilyCommand(app *Application) *cobra.Command {
+	cmd := &cobra.Command{
+		Use:   "sync-family [code]",
+		Short: "Synchronizes a family by its code",
+		Long: `Synchronizes a single family from the source Akeneo to the destination Akeneo.
+
+Requires the family code as an argument.
+
+Example:
+  akeneo-migrator sync-family clothing
+  akeneo-migrator sync-family accessories --debug`,
+		Args: cobra.ExactArgs(1),
+		Run:  runSyncFamilyCommand(app),
+	}
+
+	// Add debug flag
+	cmd.Flags().Bool("debug", false, "Enable debug mode to see family contents")
+
+	return cmd
+}
+
+// runSyncFamilyCommand executes the family synchronization logic
+func runSyncFamilyCommand(app *Application) func(cmd *cobra.Command, args []string) {
+	return func(cmd *cobra.Command, args []string) {
+		code := args[0]
+		ctx := context.Background()
+
+		// Get debug flag
+		debug, _ := cmd.Flags().GetBool("debug") //nolint:errcheck // flag is optional
+
+		fmt.Printf("🚀 Starting synchronization for family: %s\n", code)
+		if debug {
+			fmt.Println("🔍 Debug mode enabled")
+		}
+
+		// Execute synchronization using command bus
+		response, err := app.CommandBus.Dispatch(ctx, family_syncing.SyncFamilyCommand{
+			Code:  code,
+			Debug: debug,
+		})
+		if err != nil {
+			log.Printf("❌ Synchronization error: %v\n", err)
+			return
+		}
+
+		result, ok := response.Data.(*family_syncing.SyncResult)
+		if !ok {
+			log.Printf("❌ Invalid response type\n")
+			return
+		}
+
+		// Show result
+		if result.Success {
+			fmt.Printf("\n✅ Family '%s' synchronized successfully!\n", result.Code)
+			if result.VariantsSynced > 0 {
+				fmt.Printf("   📋 Family variants synced: %d\n", result.VariantsSynced)
+			}
+			if len(result.VariantsErrors) > 0 {
+				fmt.Printf("   ⚠️  Variant errors: %d\n", len(result.VariantsErrors))
+				if debug {
+					for _, errMsg := range result.VariantsErrors {
+						fmt.Printf("      - %s\n", errMsg)
+					}
+				}
+			}
 		} else {
 			fmt.Printf("❌ Failed to synchronize '%s': %s\n", result.Code, result.Error)
 		}

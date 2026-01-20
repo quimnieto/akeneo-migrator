@@ -118,6 +118,18 @@ func (s *Server) handleGetCommands(w http.ResponseWriter, r *http.Request) {
 			},
 		},
 		{
+			"id":          "sync-family",
+			"name":        "Sync Family",
+			"description": "Synchronize a single family",
+			"command":     "sync-family",
+			"args": []map[string]interface{}{
+				{"name": "code", "type": "text", "placeholder": "clothing", "required": true},
+			},
+			"flags": []map[string]interface{}{
+				{"name": "debug", "type": "checkbox", "label": "Debug mode"},
+			},
+		},
+		{
 			"id":          "sync-updated-products",
 			"name":        "Sync Updated Products",
 			"description": "Synchronize products updated since a specific date",
