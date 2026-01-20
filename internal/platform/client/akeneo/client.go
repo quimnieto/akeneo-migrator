@@ -531,14 +531,7 @@ func (c *Client) cleanReferenceEntityAttribute(attribute ReferenceEntityAttribut
 
 	// List of fields to exclude (metadata and null-only fields)
 	excludedFields := map[string]bool{
-		"_links":             true,
-		"max_characters":     true, // Only include if not null
-		"validation_regexp":  true, // Only include if not null
-		"min_value":          true, // Only include if not null
-		"max_value":          true, // Only include if not null
-		"decimals_allowed":   true, // Only include if not null
-		"max_file_size":      true, // Only include if not null
-		"allowed_extensions": true, // Only include if not null/empty
+		"_links": true,
 	}
 
 	// Required fields that should always be included
@@ -580,11 +573,6 @@ func (c *Client) cleanReferenceEntityAttribute(attribute ReferenceEntityAttribut
 			continue
 		}
 
-		// Skip null values unless it's a required field
-		if value == nil && !requiredFields[key] {
-			continue
-		}
-
 		// Include required fields
 		if requiredFields[key] {
 			if key == "labels" {
@@ -606,11 +594,17 @@ func (c *Client) cleanReferenceEntityAttribute(attribute ReferenceEntityAttribut
 			includeField = imageFields[key]
 		}
 
-		if includeField && value != nil {
-			if key == "allowed_extensions" {
-				cleaned[key] = c.normalizeArray(value)
-			} else {
+		// Include field if it's type-specific and has a value (or is required for the type)
+		if includeField {
+			// For number type, min_value and max_value are required even if null
+			if attributeType == "number" && (key == "min_value" || key == "max_value") {
 				cleaned[key] = value
+			} else if value != nil {
+				if key == "allowed_extensions" {
+					cleaned[key] = c.normalizeArray(value)
+				} else {
+					cleaned[key] = value
+				}
 			}
 		}
 	}
@@ -1660,4 +1654,138 @@ func (c *Client) StreamProductModelsUpdatedSince(updatedSince string, batchSize 
 	}
 
 	return nil
+}
+
+// AttributeOption represents an attribute option
+type AttributeOption map[string]interface{}
+
+// GetAttributeOptions retrieves all options for an attribute
+func (c *Client) GetAttributeOptions(attributeCode string) ([]AttributeOption, error) {
+	if err := c.ensureValidToken(); err != nil {
+		return nil, err
+	}
+
+	var allOptions []AttributeOption
+	page := 1
+	limit := 100
+
+	for {
+		url := fmt.Sprintf("%s/api/rest/v1/attributes/%s/options?page=%d&limit=%d",
+			c.config.Host, attributeCode, page, limit)
+
+		req, err := http.NewRequest("GET", url, nil)
+		if err != nil {
+			return nil, err
+		}
+
+		req.Header.Set("Authorization", "Bearer "+c.accessToken)
+		req.Header.Set("Content-Type", "application/json")
+
+		resp, err := c.httpClient.Do(req)
+		if err != nil {
+			return nil, err
+		}
+		defer func() { _ = resp.Body.Close() }()
+
+		if resp.StatusCode == http.StatusNotFound {
+			return nil, fmt.Errorf("attribute '%s' not found or has no options", attributeCode)
+		}
+
+		if resp.StatusCode != http.StatusOK {
+			body, _ := io.ReadAll(resp.Body)
+			return nil, fmt.Errorf("error fetching attribute options: %d - %s", resp.StatusCode, string(body))
+		}
+
+		var response struct {
+			Embedded struct {
+				Items []AttributeOption `json:"items"`
+			} `json:"_embedded"`
+			Links struct {
+				Next *struct {
+					Href string `json:"href"`
+				} `json:"next"`
+			} `json:"_links"`
+		}
+
+		if err := json.NewDecoder(resp.Body).Decode(&response); err != nil {
+			return nil, err
+		}
+
+		allOptions = append(allOptions, response.Embedded.Items...)
+
+		// If no next page, finish
+		if response.Links.Next == nil {
+			break
+		}
+
+		page++
+	}
+
+	return allOptions, nil
+}
+
+// PatchAttributeOption creates or updates an attribute option
+func (c *Client) PatchAttributeOption(attributeCode, optionCode string, option AttributeOption) error {
+	if err := c.ensureValidToken(); err != nil {
+		return err
+	}
+
+	// Clean fields that should not be sent
+	cleanOption := c.cleanAttributeOption(option)
+
+	jsonData, err := json.Marshal(cleanOption)
+	if err != nil {
+		return err
+	}
+
+	url := fmt.Sprintf("%s/api/rest/v1/attributes/%s/options/%s",
+		c.config.Host, attributeCode, optionCode)
+
+	req, err := http.NewRequest("PATCH", url, bytes.NewReader(jsonData))
+	if err != nil {
+		return err
+	}
+
+	req.Header.Set("Authorization", "Bearer "+c.accessToken)
+	req.Header.Set("Content-Type", "application/json")
+
+	resp, err := c.httpClient.Do(req)
+	if err != nil {
+		return err
+	}
+	defer func() { _ = resp.Body.Close() }()
+
+	if resp.StatusCode != http.StatusOK && resp.StatusCode != http.StatusCreated && resp.StatusCode != http.StatusNoContent {
+		body, _ := io.ReadAll(resp.Body)
+
+		if resp.StatusCode == http.StatusUnprocessableEntity {
+			var errorResponse AkeneoErrorResponse
+			if parseErr := json.Unmarshal(body, &errorResponse); parseErr == nil {
+				return fmt.Errorf("validation error in attribute option %s: %s", optionCode, c.formatAkeneoErrors(errorResponse))
+			}
+		}
+
+		return fmt.Errorf("error updating attribute option %s: %d - %s", optionCode, resp.StatusCode, string(body))
+	}
+
+	return nil
+}
+
+// cleanAttributeOption removes fields that should not be sent in write operations
+func (c *Client) cleanAttributeOption(option AttributeOption) AttributeOption {
+	cleaned := make(AttributeOption)
+
+	// List of fields to exclude
+	excludedFields := map[string]bool{
+		"_links":    true,
+		"attribute": true, // Attribute code is in the URL
+	}
+
+	for key, value := range option {
+		if !excludedFields[key] && value != nil {
+			cleaned[key] = value
+		}
+	}
+
+	return cleaned
 }

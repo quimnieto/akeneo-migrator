@@ -372,6 +372,17 @@ func runSyncAttributeCommand(app *Application) func(cmd *cobra.Command, args []s
 		// Show result
 		if result.Success {
 			fmt.Printf("\n✅ Attribute '%s' synchronized successfully!\n", result.Code)
+			if result.OptionsSynced > 0 {
+				fmt.Printf("   📋 Attribute options synced: %d\n", result.OptionsSynced)
+			}
+			if len(result.OptionsErrors) > 0 {
+				fmt.Printf("   ⚠️  Option errors: %d\n", len(result.OptionsErrors))
+				if debug {
+					for _, errMsg := range result.OptionsErrors {
+						fmt.Printf("      - %s\n", errMsg)
+					}
+				}
+			}
 		} else {
 			fmt.Printf("❌ Failed to synchronize '%s': %s\n", result.Code, result.Error)
 		}
